@@ -44,13 +44,27 @@ export default function Home() {
         body: formData,
       });
 
-      const result = await response.json();
-
       if (response.ok) {
-        setResponseMessage(`✅ ${result.message}\nImage: ${result.imageInfo.name} (${result.imageInfo.sizeMB} MB)`);
-        console.log('Server response:', result);
+        // Check if response is an image
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('image')) {
+          // It's an image response - convert to blob and display
+          const imageBlob = await response.blob();
+          const imageUrl = URL.createObjectURL(imageBlob);
+          
+          // Update the displayed image with the edited version
+          setSelectedImage(imageUrl);
+          setResponseMessage('✅ Image edited successfully with Gemini AI!');
+          console.log('Image edited and updated');
+        } else {
+          // It's a JSON response (error or info)
+          const result = await response.json();
+          setResponseMessage(`✅ ${result.message}`);
+          console.log('Server response:', result);
+        }
       } else {
-        setResponseMessage(`❌ Error: ${result.error}`);
+        const result = await response.json();
+        setResponseMessage(`❌ Error: ${result.error}\n${result.message || ''}`);
       }
     } catch (error) {
       console.error('Error submitting form:', error);
