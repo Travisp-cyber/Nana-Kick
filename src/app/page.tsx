@@ -3,12 +3,35 @@
 import { useState } from "react";
 import Image from "next/image";
 
+interface ImageHistoryItem {
+  url: string;
+  prompt: string;
+  timestamp: Date;
+}
+
 export default function Home() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [instructions, setInstructions] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [responseMessage, setResponseMessage] = useState<string>("");
+  const [imageHistory, setImageHistory] = useState<ImageHistoryItem[]>([]);
+
+  const restoreFromHistory = async (historyItem: ImageHistoryItem) => {
+    // Set the selected image
+    setSelectedImage(historyItem.url);
+    
+    // Convert URL back to File object
+    try {
+      const response = await fetch(historyItem.url);
+      const blob = await response.blob();
+      const file = new File([blob], `restored-${Date.now()}.png`, {
+        type: blob.type || 'image/png'
+      });
+      setSelectedFile(file);
+    } catch (error) {
+      console.error('Error restoring image:', error);
+    }
+  };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -16,10 +39,16 @@ export default function Home() {
       setSelectedFile(file);
       const reader = new FileReader();
       reader.onload = (e) => {
-        setSelectedImage(e.target?.result as string);
+        const imageUrl = e.target?.result as string;
+        setSelectedImage(imageUrl);
+        // Add original image to history
+        setImageHistory([{
+          url: imageUrl,
+          prompt: 'Original upload',
+          timestamp: new Date()
+        }]);
       };
       reader.readAsDataURL(file);
-      setResponseMessage(""); // Clear any previous response
     }
   };
 
@@ -32,7 +61,6 @@ export default function Home() {
     }
 
     setIsLoading(true);
-    setResponseMessage("");
 
     try {
       const formData = new FormData();
@@ -52,31 +80,44 @@ export default function Home() {
           const imageBlob = await response.blob();
           const imageUrl = URL.createObjectURL(imageBlob);
           
-          // Update the displayed image with the edited version
+          // Create a new File object from the blob for future edits
+          const newFile = new File([imageBlob], `edited-${Date.now()}.png`, {
+            type: imageBlob.type
+          });
+          
+          // Update the displayed image and file with the edited version
           setSelectedImage(imageUrl);
-          setResponseMessage('✅ Image edited successfully with Gemini AI!');
+          setSelectedFile(newFile);
+          
+          // Add to history
+          setImageHistory(prev => [...prev, {
+            url: imageUrl,
+            prompt: instructions.trim(),
+            timestamp: new Date()
+          }]);
+          
+          setInstructions(''); // Clear instructions for next edit
           console.log('Image edited and updated');
         } else {
           // It's a JSON response (error or info)
           const result = await response.json();
-          setResponseMessage(`✅ ${result.message}`);
           console.log('Server response:', result);
         }
       } else {
         const result = await response.json();
-        setResponseMessage(`❌ Error: ${result.error}\n${result.message || ''}`);
+        console.error('API Error:', result.error, result.message);
       }
     } catch (error) {
       console.error('Error submitting form:', error);
-      setResponseMessage('❌ Failed to send request to server');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-8">
-      <div className="w-full max-w-2xl mx-auto">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-8 relative">
+      {/* Main content area - always centered */}
+      <div className="w-full max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold text-center mb-8 text-gray-900 dark:text-white">
           Thumbnail Upload
         </h1>
@@ -123,18 +164,24 @@ export default function Home() {
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center space-y-6">
-            <div className="relative max-w-full max-h-[1152px] rounded-lg overflow-hidden shadow-lg">
-              <Image
-                src={selectedImage}
-                alt="Uploaded thumbnail"
-                width={2400}
-                height={1800}
-                className="object-contain max-h-[1152px]"
-                priority
-              />
+            <div className="relative w-full flex justify-center">
+              <div className="relative max-w-full rounded-lg overflow-hidden shadow-lg">
+                <Image
+                  src={selectedImage}
+                  alt="Uploaded thumbnail"
+                  width={2400}
+                  height={1800}
+                  className="object-contain w-auto h-auto"
+                  style={{ 
+                    maxHeight: '70vh', 
+                    maxWidth: '100%' 
+                  }}
+                  priority
+                />
+              </div>
             </div>
             
-            <form onSubmit={handleSubmit} className="w-full max-w-2xl space-y-4">
+            <form onSubmit={handleSubmit} className="w-full max-w-3xl space-y-4">
               <div>
                 <label 
                   htmlFor="instructions" 
@@ -175,25 +222,59 @@ export default function Home() {
                     setSelectedImage(null);
                     setSelectedFile(null);
                     setInstructions("");
-                    setResponseMessage("");
+                    setImageHistory([]);
                   }}
                   className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                 >
                   Upload Another Image
                 </button>
               </div>
-              
-              {responseMessage && (
-                <div className="mt-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                  <pre className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
-                    {responseMessage}
-                  </pre>
-                </div>
-              )}
             </form>
           </div>
         )}
       </div>
+      
+      {/* Image History Side Panel */}
+      {imageHistory.length > 0 && (
+        <div className="fixed right-0 top-0 h-full w-48 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm shadow-lg overflow-y-auto z-10">
+          <div className="p-3">
+            <h3 className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-3 sticky top-0 bg-gray-50/95 dark:bg-gray-900/95 py-2 -mx-3 px-3">
+              Image History ({imageHistory.length} versions)
+            </h3>
+            <div className="space-y-3">
+              {imageHistory.map((item, index) => (
+                <button
+                  key={`${item.timestamp.getTime()}-${index}`}
+                  onClick={() => restoreFromHistory(item)}
+                  className={`w-full group relative transition-all duration-200 hover:opacity-100 ${
+                    selectedImage === item.url
+                      ? 'opacity-100'
+                      : 'opacity-60'
+                  }`}
+                >
+                  <div className="relative overflow-hidden rounded-lg hover:shadow-lg transition-shadow">
+                    <Image
+                      src={item.url}
+                      alt={`Version ${index + 1}: ${item.prompt}`}
+                      width={160}
+                      height={160}
+                      className="object-cover w-full h-auto"
+                    />
+                  </div>
+                  <div className="mt-2">
+                    <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      {index === 0 ? 'Original' : `Version ${index}`}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 opacity-75" title={item.prompt}>
+                      {item.prompt}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
