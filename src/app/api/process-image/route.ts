@@ -75,11 +75,11 @@ export async function POST(request: NextRequest) {
 
       // Look for image data in the response
       const parts = candidate.content.parts;
-      const imageParts = parts.filter((part: any) => part.inlineData);
+      const imageParts = parts.filter((part: { inlineData?: unknown }) => part.inlineData);
       
       if (imageParts.length > 0) {
         // Found edited image
-        const editedImageData = imageParts[0].inlineData;
+        const editedImageData = imageParts[0].inlineData as { data: string; mimeType?: string };
         const editedImageBase64 = editedImageData.data;
         const editedMimeType = editedImageData.mimeType || image.type;
         
@@ -109,13 +109,13 @@ export async function POST(request: NextRequest) {
           { status: 422 }
         );
       }
-    } catch (modelError: any) {
+    } catch (modelError) {
+      const errorMessage = modelError instanceof Error ? modelError.message : String(modelError);
       console.error('Model error details:', modelError);
-      console.error('Error message:', modelError.message);
-      console.error('Error status:', modelError.status);
+      console.error('Error message:', errorMessage);
       
       // Handle specific model errors
-      if (modelError.message?.includes('404') || modelError.message?.includes('not found')) {
+      if (errorMessage.includes('404') || errorMessage.includes('not found')) {
         return NextResponse.json(
           { 
             error: 'Model not available',
@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
               '3. The model name might be different in the API vs AI Studio'
             ],
             suggestion: 'Try using "gemini-1.5-pro" or check your API access in Google AI Studio',
-            fullError: modelError.message
+            fullError: errorMessage
           },
           { status: 404 }
         );
@@ -134,10 +134,11 @@ export async function POST(request: NextRequest) {
       throw modelError;
     }
 
-  } catch (error: any) {
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error processing request:', error);
     return NextResponse.json(
-      { error: `Failed to process request: ${error.message}` },
+      { error: `Failed to process request: ${errorMessage}` },
       { status: 500 }
     );
   }
