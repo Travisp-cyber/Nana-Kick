@@ -19,6 +19,7 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
   const [instructions, setInstructions] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [imageHistory, setImageHistory] = useState<ImageHistoryItem[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const restoreFromHistory = async (historyItem: ImageHistoryItem) => {
     // Set the selected image
@@ -65,16 +66,34 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
     }
 
     setIsLoading(true);
+    setError(null);
+    
+    console.log('Submitting form with instructions:', instructions.trim());
 
     try {
       const formData = new FormData();
       formData.append('image', selectedFile);
       formData.append('instructions', instructions.trim());
 
-      const response = await fetch('/api/process-image', {
+      // Use absolute URL for API calls to work in Whop preview
+      const apiUrl = typeof window !== 'undefined' 
+        ? `${window.location.origin}/api/process-image`
+        : '/api/process-image';
+        
+      console.log('API URL:', apiUrl);
+      console.log('Window location:', window.location.href);
+      
+      const response = await fetch(apiUrl, {
         method: 'POST',
         body: formData,
+        // Add headers for CORS if needed
+        headers: {
+          // FormData automatically sets the correct Content-Type with boundary
+        },
       });
+      
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
 
       if (response.ok) {
         // Check if response is an image
@@ -105,14 +124,21 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
         } else {
           // It's a JSON response (error or info)
           const result = await response.json();
-          console.log('Server response:', result);
+          console.error('Server response:', result);
+          setError(result.error || 'Failed to process image');
+          alert(`Error: ${result.error}\n${result.message || ''}`);
         }
       } else {
         const result = await response.json();
-        console.error('API Error:', result.error, result.message);
+        console.error('API Error:', result);
+        setError(`API Error: ${result.error}`);
+        alert(`API Error: ${result.error}\n${result.message || ''}`);
       }
     } catch (error) {
       console.error('Error submitting form:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setError(errorMessage);
+      alert(`Network Error: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
@@ -186,6 +212,12 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
             </div>
             
             <form onSubmit={handleSubmit} className="w-full max-w-3xl space-y-4">
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-4">
+                  <p className="font-semibold">Error:</p>
+                  <p className="text-sm">{error}</p>
+                </div>
+              )}
               <div>
                 <label 
                   htmlFor="instructions" 
