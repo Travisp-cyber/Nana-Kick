@@ -1,9 +1,6 @@
 'use client';
 
-import { useIframeSdk } from '@whop/react';
-
 export default function DiscoverPage() {
-  const iframeApi = useIframeSdk();
 
   const handleAddToWhop = () => {
     const appId = process.env.NEXT_PUBLIC_WHOP_APP_ID;
