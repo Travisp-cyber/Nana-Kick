@@ -1,3 +1,4 @@
+import { whopSdk } from './whop-sdk';
 import { prisma } from './db';
 import { cookies } from 'next/headers';
 
@@ -11,8 +12,26 @@ export interface WhopSession {
 // Get session from cookies (for server components)
 export async function getWhopSession(): Promise<WhopSession | null> {
   try {
-    // For now, just return null - implement proper session handling later
-    return null;
+    const cookieStore = await cookies();
+    const sessionToken = cookieStore.get('whop-session-token')?.value;
+    
+    if (!sessionToken) {
+      return null;
+    }
+    
+    // Validate session token with Whop API
+    const session = await whopSdk.app.validateSession({ token: sessionToken });
+    
+    if (!session || !session.user_id) {
+      return null;
+    }
+    
+    return {
+      userId: session.user_id,
+      membershipId: session.membership_id,
+      companyId: session.company_id,
+      isValid: true,
+    };
   } catch (error) {
     console.error('Error getting Whop session:', error);
     return null;
@@ -62,6 +81,18 @@ export async function hasActiveSubscription(userId: string, productId?: string):
       return true;
     }
     
+    // If no local records, check with Whop API
+    try {
+      const memberships = await whopSdk.app.listMemberships({
+        userId,
+        valid: true,
+      });
+      
+      return memberships && memberships.length > 0;
+    } catch (apiError) {
+      console.error('Error checking Whop API for memberships:', apiError);
+    }
+    
     return false;
   } catch (error) {
     console.error('Error checking subscription:', error);
@@ -103,19 +134,64 @@ export async function getUserMembership(userId: string) {
   }
 }
 
-// Sync user data from Whop - simplified version without API calls
+// Sync user data from Whop
 export async function syncUserFromWhop(whopUserId: string, membershipId?: string) {
   try {
-    // For now, just return the existing user or create a placeholder
+    // Get user details from Whop
+    const whopUser = await whopSdk.app.retrieveUserByID({ userId: whopUserId });
+    
+    if (!whopUser) {
+      throw new Error('User not found in Whop');
+    }
+    
+    // Upsert user in database
     const user = await prisma.user.upsert({
       where: { whopUserId },
       create: {
         whopUserId,
-        email: null,
-        name: 'User ' + whopUserId,
+        email: whopUser.email,
+        name: whopUser.username || whopUser.name,
+        avatarUrl: whopUser.profile_pic_url,
       },
-      update: {},
+      update: {
+        email: whopUser.email || undefined,
+        name: whopUser.username || whopUser.name || undefined,
+        avatarUrl: whopUser.profile_pic_url || undefined,
+      },
     });
+    
+    // If membershipId is provided, sync membership data
+    if (membershipId) {
+      const membership = await whopSdk.app.retrieveMembershipByID({ membershipId });
+      
+      if (membership) {
+        // Ensure company exists
+        const company = await prisma.company.upsert({
+          where: { whopCompanyId: membership.company_id },
+          create: {
+            whopCompanyId: membership.company_id,
+            name: 'Company ' + membership.company_id,
+          },
+          update: {},
+        });
+        
+        // Update membership
+        await prisma.membership.upsert({
+          where: { whopMembershipId: membershipId },
+          create: {
+            whopMembershipId: membershipId,
+            userId: user.id,
+            companyId: company.id,
+            status: membership.valid ? 'valid' : 'invalid',
+            expiresAt: membership.expires_at ? new Date(membership.expires_at) : null,
+          },
+          update: {
+            status: membership.valid ? 'valid' : 'invalid',
+            expiresAt: membership.expires_at ? new Date(membership.expires_at) : null,
+          },
+        });
+      }
+    }
     
     return user;
   } catch (error) {
