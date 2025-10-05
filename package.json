@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@supabase/ssr": "^0.7.0",
+    "@supabase/supabase-js": "^2.58.0",
     "@vercel/functions": "^3.1.1",
     "@whop/api": "^0.0.51",
     "@whop/react": "^0.2.46",
