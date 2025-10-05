@@ -1,4 +1,15 @@
+'use client';
+
+import { iframeApi } from '@whop/react';
+
 export default function DiscoverPage() {
+  const handleAddToWhop = async () => {
+    try {
+      await iframeApi.requestInstall();
+    } catch (error) {
+      console.error('Failed to install app:', error);
+    }
+  };
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <div className="max-w-6xl mx-auto px-4 py-16">
@@ -88,7 +99,10 @@ export default function DiscoverPage() {
           <p className="text-lg text-gray-600 dark:text-gray-400 mb-8">
             Add this app to your Whop community and give your members access to powerful AI image editing.
           </p>
-          <button className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:from-blue-700 hover:to-indigo-700 transition-colors">
+          <button 
+            onClick={handleAddToWhop}
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:from-blue-700 hover:to-indigo-700 transition-colors"
+          >
             Add to Your Whop
           </button>
         </div>
