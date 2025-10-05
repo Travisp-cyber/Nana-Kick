@@ -1,7 +1,6 @@
 import { whopSdk } from './whop-sdk';
 import { prisma } from './db';
 import { cookies } from 'next/headers';
-import { NextRequest } from 'next/server';
 
 export interface WhopSession {
   userId: string;
@@ -202,7 +201,7 @@ export async function syncUserFromWhop(whopUserId: string, membershipId?: string
 }
 
 // Middleware helper to check authentication
-export async function requireAuth(request: NextRequest) {
+export async function requireAuth() {
   const session = await getWhopSession();
   
   if (!session || !session.isValid) {
@@ -219,8 +218,8 @@ export async function requireAuth(request: NextRequest) {
 }
 
 // Middleware helper to check subscription
-export async function requireSubscription(request: NextRequest, productId?: string) {
-  const { authorized, session } = await requireAuth(request);
+export async function requireSubscription(productId?: string) {
+  const { authorized, session } = await requireAuth();
   
   if (!authorized || !session) {
     return {

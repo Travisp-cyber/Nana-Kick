@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     }
     
     // Check subscription
-    const { authorized, hasSubscription, session } = await requireSubscription(req, productId);
+    const { authorized, hasSubscription, session } = await requireSubscription(productId);
     
     if (!authorized || !session) {
       return NextResponse.json({

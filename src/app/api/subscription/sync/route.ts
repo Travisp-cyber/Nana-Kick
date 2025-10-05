@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getWhopSession, syncUserFromWhop } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 
-export async function POST(req: NextRequest) {
+export async function POST() {
   try {
     // Get current session
     const session = await getWhopSession();

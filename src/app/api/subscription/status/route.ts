@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getWhopSession, hasActiveSubscription, getUserMembership } from '@/lib/auth';
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     // Get current session
     const session = await getWhopSession();

@@ -178,7 +178,7 @@ async function handlePurchaseEvent(body: WebhookBody) {
     const purchaseId = body.event; // e.g., 'pay_W9MentDx7FZ0dh'
     const membershipId = body.membership_id || getString(body.data, 'membership_id');
     const userId = body.user_id || getString(body.data, 'user_id');
-    const productId = body.product_id || getString(body.data, 'product_id');
+    // const productId = body.product_id || getString(body.data, 'product_id'); // TODO: Use for product tracking
     const email = body.email || getString(body.data, 'email');
     
     if (!membershipId) {
