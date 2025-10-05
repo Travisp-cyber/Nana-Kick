@@ -1,13 +1,25 @@
 'use client';
 
-import { iframeApi } from '@whop/react';
+import { useIframeSdk } from '@whop/react';
 
 export default function DiscoverPage() {
-  const handleAddToWhop = async () => {
-    try {
-      await iframeApi.requestInstall();
-    } catch (error) {
-      console.error('Failed to install app:', error);
+  const iframeApi = useIframeSdk();
+
+  const handleAddToWhop = () => {
+    const appId = process.env.NEXT_PUBLIC_WHOP_APP_ID;
+    if (!appId) {
+      console.warn('Missing NEXT_PUBLIC_WHOP_APP_ID. Cannot open install page.');
+      return;
+    }
+
+    // Direct redirect to the Whop app install page
+    const installUrl = `https://whop.com/apps/${appId}`;
+    
+    // Use window.top to break out of iframe if needed
+    if (window.top) {
+      window.top.location.href = installUrl;
+    } else {
+      window.location.href = installUrl;
     }
   };
   return (
