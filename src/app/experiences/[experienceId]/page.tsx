@@ -22,6 +22,7 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
   const [error, setError] = useState<string | null>(null);
   const [isDeleteMode, setIsDeleteMode] = useState<boolean>(false);
   const [selectedForDeletion, setSelectedForDeletion] = useState<Set<number>>(new Set());
+  const [hoveredImage, setHoveredImage] = useState<string | null>(null);
 
   // Debug logger (no-op in production)
   const debug = (...args: unknown[]) => {
@@ -309,7 +310,7 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
             <div className="relative w-full flex justify-center">
               <div className="relative max-w-full rounded-lg overflow-hidden shadow-lg">
                 <Image
-                  src={selectedImage}
+                  src={hoveredImage || selectedImage}
                   alt="Uploaded thumbnail"
                   width={2400}
                   height={1800}
@@ -440,6 +441,14 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
                       } else {
                         restoreFromHistory(item);
                       }
+                    }}
+                    onMouseEnter={() => {
+                      if (!isDeleteMode) {
+                        setHoveredImage(item.url);
+                      }
+                    }}
+                    onMouseLeave={() => {
+                      setHoveredImage(null);
                     }}
                     className={`w-full group relative transition-all duration-200 hover:opacity-100 ${
                       selectedImage === item.url && !isDeleteMode
