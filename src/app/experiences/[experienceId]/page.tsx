@@ -309,18 +309,35 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
           <div className="flex flex-col items-center justify-center space-y-6">
             <div className="relative w-full flex justify-center">
               <div className="relative max-w-full rounded-lg overflow-hidden shadow-lg">
-                <Image
-                  src={hoveredImage || selectedImage}
-                  alt="Uploaded thumbnail"
-                  width={2400}
-                  height={1800}
-                  className="object-contain w-auto h-auto"
-                  style={{ 
-                    maxHeight: '70vh', 
-                    maxWidth: '100%' 
-                  }}
-                  priority
-                />
+                {hoveredImage ? (
+                  <Image
+                    key={hoveredImage}
+                    src={hoveredImage}
+                    alt="Preview thumbnail"
+                    width={2400}
+                    height={1800}
+                    className="object-contain w-auto h-auto"
+                    style={{ 
+                      maxHeight: '70vh', 
+                      maxWidth: '100%' 
+                    }}
+                    priority
+                  />
+                ) : (
+                  <Image
+                    key={selectedImage}
+                    src={selectedImage}
+                    alt="Uploaded thumbnail"
+                    width={2400}
+                    height={1800}
+                    className="object-contain w-auto h-auto"
+                    style={{ 
+                      maxHeight: '70vh', 
+                      maxWidth: '100%' 
+                    }}
+                    priority
+                  />
+                )}
               </div>
             </div>
             
