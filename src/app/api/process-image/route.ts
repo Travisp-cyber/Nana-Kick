@@ -7,16 +7,19 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: NextRequest) {
-  console.log('=== API Route Called ===');
-  console.log('Method:', request.method);
-  console.log('URL:', request.url);
-  console.log('Headers:', Object.fromEntries(request.headers.entries()));
+  const isProd = process.env.NODE_ENV === 'production';
+  const dlog = (...args: unknown[]) => { if (!isProd) console.log(...args); };
+
+  dlog('=== API Route Called ===');
+  dlog('Method:', request.method);
+  dlog('URL:', request.url);
+  dlog('Headers:', Object.fromEntries(request.headers.entries()));
   
   try {
     // Check if API key is configured
     const apiKey = process.env.GOOGLE_AI_API_KEY;
     if (!apiKey || apiKey === 'your_api_key_here') {
-      console.error('API key not configured');
+      if (!process.env.NODE_ENV || process.env.NODE_ENV !== 'production') console.error('API key not configured');
       return NextResponse.json(
         { error: 'Google AI API key not configured. Please set GOOGLE_AI_API_KEY in .env.local' },
         { status: 500 }
@@ -27,9 +30,9 @@ export async function POST(request: NextRequest) {
     const image = formData.get('image') as File;
     const instructions = formData.get('instructions') as string;
     
-    console.log('Form data received:');
-    console.log('- Has image:', !!image);
-    console.log('- Instructions:', instructions);
+    dlog('Form data received:');
+    dlog('- Has image:', !!image);
+    dlog('- Instructions:', instructions);
 
     if (!image || !instructions) {
       return NextResponse.json(
@@ -45,14 +48,14 @@ export async function POST(request: NextRequest) {
     const imageSizeMB = Math.round(imageSizeKB / 1024 * 100) / 100;
 
     // Log to console as requested
-    console.log('=== Image Processing Request ===');
-    console.log('User Prompt:', instructions);
-    console.log('Image File Name:', image.name);
-    console.log('Image Type:', image.type);
-    console.log('Image Size (bytes):', imageSizeBytes);
-    console.log('Image Size (KB):', imageSizeKB);
-    console.log('Image Size (MB):', imageSizeMB);
-    console.log('================================');
+    dlog('=== Image Processing Request ===');
+    dlog('User Prompt:', instructions);
+    dlog('Image File Name:', image.name);
+    dlog('Image Type:', image.type);
+    dlog('Image Size (bytes):', imageSizeBytes);
+    dlog('Image Size (KB):', imageSizeKB);
+    dlog('Image Size (MB):', imageSizeMB);
+    dlog('================================');
 
     // Initialize Google AI with Gemini 2.5 Flash
     const genAI = new GoogleGenerativeAI(apiKey);
@@ -72,7 +75,7 @@ export async function POST(request: NextRequest) {
     // Create the edit prompt for image generation/editing
     const editPrompt = `Edit this image according to the following instructions: ${instructions}`;
 
-    console.log('Processing image with Gemini 2.5 Flash (Nano Banana)...');
+    dlog('Processing image with Gemini 2.5 Flash (Nano Banana)...');
     
     try {
       // Generate edited image
@@ -101,7 +104,7 @@ export async function POST(request: NextRequest) {
         // Convert base64 to buffer
         const editedImageBuffer = Buffer.from(editedImageBase64, 'base64');
         
-        console.log('Image edited successfully!');
+        dlog('Image edited successfully!');
         
         // Return the edited image
         return new NextResponse(editedImageBuffer, {
@@ -113,7 +116,7 @@ export async function POST(request: NextRequest) {
       } else {
         // If no image in response, it might be text-only
         const textResponse = response.text();
-        console.log('Gemini response:', textResponse);
+        dlog('Gemini response:', textResponse);
         
         return NextResponse.json(
           { 

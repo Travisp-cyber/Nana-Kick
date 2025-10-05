@@ -21,6 +21,11 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
   const [imageHistory, setImageHistory] = useState<ImageHistoryItem[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  // Debug logger (no-op in production)
+  const debug = (...args: unknown[]) => {
+    if (process.env.NODE_ENV !== 'production') console.log(...args);
+  };
+
   const restoreFromHistory = async (historyItem: ImageHistoryItem) => {
     // Set the selected image
     setSelectedImage(historyItem.url);
@@ -64,11 +69,11 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
       alert('Please select an image and provide instructions.');
       return;
     }
-
+    
     setIsLoading(true);
     setError(null);
     
-    console.log('Submitting form with instructions:', instructions.trim());
+    debug('Submitting form with instructions:', instructions.trim());
 
     try {
       const formData = new FormData();
@@ -80,12 +85,12 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
       const isWhopDomain = window.location.hostname.includes('whop.com');
       const referrerIsWhop = document.referrer.includes('whop.com');
       
-      console.log('=== Environment Detection ===');
-      console.log('- Is in iframe:', isInIframe);
-      console.log('- Is Whop domain:', isWhopDomain);
-      console.log('- Referrer is Whop:', referrerIsWhop);
-      console.log('- Window location:', window.location.href);
-      console.log('- Document referrer:', document.referrer);
+      debug('=== Environment Detection ===');
+      debug('- Is in iframe:', isInIframe);
+      debug('- Is Whop domain:', isWhopDomain);
+      debug('- Referrer is Whop:', referrerIsWhop);
+      debug('- Window location:', window.location.href);
+      debug('- Document referrer:', document.referrer);
       
       // Build the API URL based on environment
       let apiUrl: string;
@@ -95,15 +100,15 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
         // Use the production URL from environment variable
         const productionUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nana-kick.vercel.app';
         apiUrl = `${productionUrl}/api/process-image`;
-        console.log('Using production URL for API:', apiUrl);
+        debug('Using production URL for API:', apiUrl);
       } else {
         // Local development
         apiUrl = `${window.location.origin}/api/process-image`;
-        console.log('Using local URL for API:', apiUrl);
+        debug('Using local URL for API:', apiUrl);
       }
       
-      console.log('Final API URL:', apiUrl);
-      console.log('Submitting with FormData...');
+      debug('Final API URL:', apiUrl);
+      debug('Submitting with FormData...');
       
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -112,8 +117,8 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
         credentials: 'include', // Include cookies if needed
       });
       
-      console.log('Response status:', response.status);
-      console.log('Response headers:', response.headers);
+      debug('Response status:', response.status);
+      debug('Response headers:', response.headers);
 
       if (response.ok) {
         // Check if response is an image
@@ -140,7 +145,7 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
           }]);
           
           setInstructions(''); // Clear instructions for next edit
-          console.log('Image edited and updated');
+          debug('Image edited and updated');
         } else {
           // It's a JSON response (error or info)
           const result = await response.json();
