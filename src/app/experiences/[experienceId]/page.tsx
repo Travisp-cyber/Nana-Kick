@@ -320,6 +320,7 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
                     maxWidth: '100%' 
                   }}
                   priority
+                  unoptimized
                 />
               </div>
             </div>
@@ -444,10 +445,12 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
                     }}
                     onMouseEnter={() => {
                       if (!isDeleteMode) {
+                        console.log('Hovering over image:', item.prompt);
                         setHoveredImage(item.url);
                       }
                     }}
                     onMouseLeave={() => {
+                      console.log('Mouse left image');
                       setHoveredImage(null);
                     }}
                     className={`w-full group relative transition-all duration-200 hover:opacity-100 ${
@@ -463,6 +466,7 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
                         width={160}
                         height={160}
                         className="object-cover w-full h-auto"
+                        unoptimized
                       />
                       {isDeleteMode && (
                         <div className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-md">
