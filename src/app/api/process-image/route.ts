@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
+// CORS headers
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: corsHeaders,
+  });
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Check if API key is configured
@@ -8,7 +22,7 @@ export async function POST(request: NextRequest) {
     if (!apiKey || apiKey === 'your_api_key_here') {
       return NextResponse.json(
         { error: 'Google AI API key not configured. Please set GOOGLE_AI_API_KEY in .env.local' },
-        { status: 500 }
+        { status: 500, headers: corsHeaders }
       );
     }
 
@@ -19,7 +33,7 @@ export async function POST(request: NextRequest) {
     if (!image || !instructions) {
       return NextResponse.json(
         { error: 'Missing image or instructions' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -93,6 +107,7 @@ export async function POST(request: NextRequest) {
           headers: {
             'Content-Type': editedMimeType,
             'Content-Disposition': 'inline; filename="edited-thumbnail.png"',
+            ...corsHeaders
           }
         });
       } else {
@@ -106,7 +121,7 @@ export async function POST(request: NextRequest) {
             message: 'Gemini 2.5 Flash did not return an edited image. Response: ' + textResponse,
             hint: 'This might mean the model is not configured for image editing in your account or region.'
           },
-          { status: 422 }
+          { status: 422, headers: corsHeaders }
         );
       }
     } catch (modelError) {
@@ -128,7 +143,7 @@ export async function POST(request: NextRequest) {
             suggestion: 'Try using "gemini-1.5-pro" or check your API access in Google AI Studio',
             fullError: errorMessage
           },
-          { status: 404 }
+          { status: 404, headers: corsHeaders }
         );
       }
       throw modelError;
@@ -139,7 +154,7 @@ export async function POST(request: NextRequest) {
     console.error('Error processing request:', error);
     return NextResponse.json(
       { error: `Failed to process request: ${errorMessage}` },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }
