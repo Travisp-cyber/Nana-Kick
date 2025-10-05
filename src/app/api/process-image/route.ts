@@ -1,39 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// CORS headers
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
-
+// Handle OPTIONS request for CORS
 export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 200,
-    headers: corsHeaders,
-  });
+  return new NextResponse(null, { status: 200 });
 }
 
 export async function POST(request: NextRequest) {
+  console.log('=== API Route Called ===');
+  console.log('Method:', request.method);
+  console.log('URL:', request.url);
+  console.log('Headers:', Object.fromEntries(request.headers.entries()));
+  
   try {
     // Check if API key is configured
     const apiKey = process.env.GOOGLE_AI_API_KEY;
     if (!apiKey || apiKey === 'your_api_key_here') {
+      console.error('API key not configured');
       return NextResponse.json(
         { error: 'Google AI API key not configured. Please set GOOGLE_AI_API_KEY in .env.local' },
-        { status: 500, headers: corsHeaders }
+        { status: 500 }
       );
     }
 
     const formData = await request.formData();
     const image = formData.get('image') as File;
     const instructions = formData.get('instructions') as string;
+    
+    console.log('Form data received:');
+    console.log('- Has image:', !!image);
+    console.log('- Instructions:', instructions);
 
     if (!image || !instructions) {
       return NextResponse.json(
         { error: 'Missing image or instructions' },
-        { status: 400, headers: corsHeaders }
+        { status: 400 }
       );
     }
 
@@ -106,8 +107,7 @@ export async function POST(request: NextRequest) {
         return new NextResponse(editedImageBuffer, {
           headers: {
             'Content-Type': editedMimeType,
-            'Content-Disposition': 'inline; filename="edited-thumbnail.png"',
-            ...corsHeaders
+            'Content-Disposition': 'inline; filename="edited-thumbnail.png"'
           }
         });
       } else {
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
             message: 'Gemini 2.5 Flash did not return an edited image. Response: ' + textResponse,
             hint: 'This might mean the model is not configured for image editing in your account or region.'
           },
-          { status: 422, headers: corsHeaders }
+          { status: 422 }
         );
       }
     } catch (modelError) {
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
             suggestion: 'Try using "gemini-1.5-pro" or check your API access in Google AI Studio',
             fullError: errorMessage
           },
-          { status: 404, headers: corsHeaders }
+          { status: 404 }
         );
       }
       throw modelError;
@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
     console.error('Error processing request:', error);
     return NextResponse.json(
       { error: `Failed to process request: ${errorMessage}` },
-      { status: 500, headers: corsHeaders }
+      { status: 500 }
     );
   }
 }

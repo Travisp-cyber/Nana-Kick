@@ -75,21 +75,41 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
       formData.append('image', selectedFile);
       formData.append('instructions', instructions.trim());
 
-      // Use absolute URL for API calls to work in Whop preview
-      const apiUrl = typeof window !== 'undefined' 
-        ? `${window.location.origin}/api/process-image`
-        : '/api/process-image';
-        
-      console.log('API URL:', apiUrl);
-      console.log('Window location:', window.location.href);
+      // Detect if we're running inside Whop iframe by checking multiple indicators
+      const isInIframe = window.parent !== window;
+      const isWhopDomain = window.location.hostname.includes('whop.com');
+      const referrerIsWhop = document.referrer.includes('whop.com');
+      
+      console.log('=== Environment Detection ===');
+      console.log('- Is in iframe:', isInIframe);
+      console.log('- Is Whop domain:', isWhopDomain);
+      console.log('- Referrer is Whop:', referrerIsWhop);
+      console.log('- Window location:', window.location.href);
+      console.log('- Document referrer:', document.referrer);
+      
+      // Build the API URL based on environment
+      let apiUrl: string;
+      
+      // If we're in an iframe or have Whop referrer, use the production URL
+      if (isInIframe || referrerIsWhop) {
+        // Use the production URL from environment variable
+        const productionUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nana-kick.vercel.app';
+        apiUrl = `${productionUrl}/api/process-image`;
+        console.log('Using production URL for API:', apiUrl);
+      } else {
+        // Local development
+        apiUrl = `${window.location.origin}/api/process-image`;
+        console.log('Using local URL for API:', apiUrl);
+      }
+      
+      console.log('Final API URL:', apiUrl);
+      console.log('Submitting with FormData...');
       
       const response = await fetch(apiUrl, {
         method: 'POST',
         body: formData,
-        // Add headers for CORS if needed
-        headers: {
-          // FormData automatically sets the correct Content-Type with boundary
-        },
+        mode: 'cors', // Explicitly set CORS mode
+        credentials: 'include', // Include cookies if needed
       });
       
       console.log('Response status:', response.status);
