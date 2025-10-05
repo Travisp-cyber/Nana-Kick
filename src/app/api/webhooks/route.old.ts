@@ -3,27 +3,6 @@ import { prisma } from "@/lib/db";
 import { whopSdk } from "@/lib/whop-sdk";
 import crypto from "crypto";
 
-interface WebhookBody {
-  event?: string;
-  action?: string;
-  resource?: string;
-  resource_type?: string;
-  type?: string;
-  data?: Record<string, unknown>;
-  membership_id?: string;
-  user_id?: string;
-  product_id?: string;
-  company_id?: string;
-  company_name?: string;
-  email?: string;
-  username?: string;
-  valid?: boolean;
-  purchase_id?: string;
-  payment_id?: string;
-  expires_at?: string;
-  [key: string]: unknown;
-}
-
 // Verify webhook signature (implement this based on Whop's webhook security)
 function verifyWebhookSignature(payload: string, signature: string | null): boolean {
   if (!signature || !process.env.WHOP_WEBHOOK_SECRET) {
@@ -52,7 +31,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
     
-    const body: WebhookBody = JSON.parse(payload);
+    const body = JSON.parse(payload);
     
     // Log webhook event
     console.log("Webhook received:", {
@@ -68,11 +47,11 @@ export async function POST(req: NextRequest) {
     
     // Also check for specific IDs that indicate event types
     const isPurchaseEvent = body.event?.startsWith('pay_') || 
-                           (body.data?.payment_id as string)?.startsWith('pay_') ||
-                           !!body.purchase_id;
+                           body.data?.payment_id?.startsWith('pay_') ||
+                           body.purchase_id;
     const isMembershipEvent = body.event?.startsWith('mem_') || 
-                             (body.data?.membership_id as string)?.startsWith('mem_') ||
-                             !!body.membership_id;
+                             body.data?.membership_id?.startsWith('mem_') ||
+                             body.membership_id;
     
     console.log("Event analysis:", {
       action,
@@ -114,48 +93,33 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Helper to safely extract string from unknown data
-function getString(data: unknown, field: string): string | undefined {
-  if (typeof data === 'object' && data !== null && field in data) {
-    const value = (data as Record<string, unknown>)[field];
-    return typeof value === 'string' ? value : undefined;
-  }
-  return undefined;
-}
-
 // Handler functions for different webhook events
 async function handleAppInstalled(data: unknown) {
   try {
-    const companyId = getString(data, 'company_id');
-    if (!companyId) return;
-    
     // Create or update company record
     await prisma.company.upsert({
-      where: { whopCompanyId: companyId },
+      where: { whopCompanyId: data.company_id },
       create: {
-        whopCompanyId: companyId,
-        name: getString(data, 'company_name') || "Unknown Company",
+        whopCompanyId: data.company_id,
+        name: data.company_name || "Unknown Company",
       },
       update: {
-        name: getString(data, 'company_name') || "Unknown Company",
+        name: data.company_name || "Unknown Company",
       },
     });
     
-    console.log("App installed for company:", companyId);
+    console.log("App installed for company:", data.company_id);
   } catch (error) {
     console.error("Error handling app installation:", error);
   }
 }
 
-async function handleAppUninstalled(data: unknown) {
+async function handleAppUninstalled(data: any) {
   try {
-    const companyId = getString(data, 'company_id');
-    if (!companyId) return;
-    
     // Update all memberships for this company to invalid
     await prisma.membership.updateMany({
       where: { 
-        company: { whopCompanyId: companyId },
+        company: { whopCompanyId: data.company_id },
         status: "valid",
       },
       data: {
@@ -164,22 +128,22 @@ async function handleAppUninstalled(data: unknown) {
       },
     });
     
-    console.log("App uninstalled for company:", companyId);
+    console.log("App uninstalled for company:", data.company_id);
   } catch (error) {
     console.error("Error handling app uninstallation:", error);
   }
 }
 
-async function handlePurchaseEvent(body: WebhookBody) {
+async function handlePurchaseEvent(body: any) {
   try {
     console.log("Processing purchase event with body:", body);
     
     // Extract data based on Whop's webhook format
     const purchaseId = body.event; // e.g., 'pay_W9MentDx7FZ0dh'
-    const membershipId = body.membership_id || getString(body.data, 'membership_id');
-    const userId = body.user_id || getString(body.data, 'user_id');
-    const productId = body.product_id || getString(body.data, 'product_id');
-    const email = body.email || getString(body.data, 'email');
+    const membershipId = body.membership_id || body.data?.membership_id;
+    const userId = body.user_id || body.data?.user_id;
+    const productId = body.product_id || body.data?.product_id;
+    const email = body.email || body.data?.email;
     
     if (!membershipId) {
       console.warn("No membership ID in purchase event, skipping");
@@ -199,7 +163,7 @@ async function handlePurchaseEvent(body: WebhookBody) {
     // Use webhook data if API call fails
     const finalUserId = membershipDetails?.user_id || userId;
     const finalEmail = membershipDetails?.email || email;
-    const companyId = membershipDetails?.company_id || body.company_id || process.env.NEXT_PUBLIC_WHOP_COMPANY_ID || '';
+    const companyId = membershipDetails?.company_id || body.company_id || process.env.NEXT_PUBLIC_WHOP_COMPANY_ID;
     
     if (!finalUserId) {
       console.error("No user ID found in purchase event");
@@ -212,7 +176,7 @@ async function handlePurchaseEvent(body: WebhookBody) {
       create: {
         whopUserId: finalUserId,
         email: finalEmail,
-        name: body.username || getString(body.data, 'username') || finalEmail?.split('@')[0],
+        name: body.username || body.data?.username || finalEmail?.split('@')[0],
       },
       update: {
         email: finalEmail || undefined,
@@ -251,10 +215,10 @@ async function handlePurchaseEvent(body: WebhookBody) {
   }
 }
 
-async function handleMembershipValid(data: unknown) {
+async function handleMembershipValid(data: any) {
   try {
     // Extract membership ID from various possible locations
-    const membershipId = getString(data, 'membership_id') || getString(data, 'id') || getString(data, 'event');
+    const membershipId = data.membership_id || data.id || data.event;
     
     if (!membershipId) {
       console.error("No membership ID found in data:", data);
@@ -271,11 +235,11 @@ async function handleMembershipValid(data: unknown) {
       console.error("Failed to fetch membership:", apiError);
       // Use data from webhook if API fails
       membership = {
-        user_id: getString(data, 'user_id'),
-        email: getString(data, 'email'),
-        username: getString(data, 'username'),
-        company_id: getString(data, 'company_id') || process.env.NEXT_PUBLIC_WHOP_COMPANY_ID,
-        expires_at: getString(data, 'expires_at'),
+        user_id: data.user_id,
+        email: data.email,
+        username: data.username,
+        company_id: data.company_id || process.env.NEXT_PUBLIC_WHOP_COMPANY_ID,
+        expires_at: data.expires_at,
       };
     }
     
@@ -299,10 +263,10 @@ async function handleMembershipValid(data: unknown) {
     
     // Create or update company
     const company = await prisma.company.upsert({
-      where: { whopCompanyId: membership.company_id || '' },
+      where: { whopCompanyId: membership.company_id },
       create: {
-        whopCompanyId: membership.company_id || '',
-        name: getString(data, 'company_name') || "Company " + membership.company_id,
+        whopCompanyId: membership.company_id,
+        name: data.company_name || "Company " + membership.company_id,
       },
       update: {},
     });
@@ -330,14 +294,11 @@ async function handleMembershipValid(data: unknown) {
   }
 }
 
-async function handleMembershipInvalid(data: unknown) {
+async function handleMembershipInvalid(data: any) {
   try {
-    const membershipId = getString(data, 'membership_id');
-    if (!membershipId) return;
-    
     // Update membership status
     await prisma.membership.update({
-      where: { whopMembershipId: membershipId },
+      where: { whopMembershipId: data.membership_id },
       data: {
         status: "invalid",
         canceledAt: new Date(),
@@ -347,7 +308,7 @@ async function handleMembershipInvalid(data: unknown) {
     // Update related subscriptions
     await prisma.subscription.updateMany({
       where: {
-        membership: { whopMembershipId: membershipId },
+        membership: { whopMembershipId: data.membership_id },
         status: "active",
       },
       data: {
@@ -355,67 +316,53 @@ async function handleMembershipInvalid(data: unknown) {
       },
     });
     
-    console.log("Membership deactivated:", membershipId);
+    console.log("Membership deactivated:", data.membership_id);
   } catch (error) {
     console.error("Error handling membership deactivation:", error);
   }
 }
 
-async function handlePaymentCompleted(data: unknown) {
+async function handlePaymentCompleted(data: any) {
   try {
-    const subscriptionId = getString(data, 'subscription_id');
-    const paymentId = getString(data, 'payment_id');
-    
     // Record payment in database
-    if (subscriptionId && paymentId) {
-      const amount = typeof (data as Record<string, unknown>)['amount'] === 'number' 
-        ? (data as Record<string, unknown>)['amount'] as number 
-        : 0;
-        
+    if (data.subscription_id && data.payment_id) {
       await prisma.payment.create({
         data: {
-          whopPaymentId: paymentId,
-          subscriptionId: subscriptionId,
-          amount: amount,
-          currency: getString(data, 'currency') || "USD",
+          whopPaymentId: data.payment_id,
+          subscriptionId: data.subscription_id,
+          amount: data.amount || 0,
+          currency: data.currency || "USD",
           status: "completed",
-          paymentMethod: getString(data, 'payment_method'),
+          paymentMethod: data.payment_method,
           processedAt: new Date(),
         },
       });
     }
     
-    console.log("Payment completed:", paymentId);
+    console.log("Payment completed:", data.payment_id);
   } catch (error) {
     console.error("Error handling payment completion:", error);
   }
 }
 
-async function handlePaymentFailed(data: unknown) {
+async function handlePaymentFailed(data: any) {
   try {
-    const subscriptionId = getString(data, 'subscription_id');
-    const paymentId = getString(data, 'payment_id');
-    
     // Record failed payment
-    if (subscriptionId && paymentId) {
-      const amount = typeof (data as Record<string, unknown>)['amount'] === 'number' 
-        ? (data as Record<string, unknown>)['amount'] as number 
-        : 0;
-        
+    if (data.subscription_id && data.payment_id) {
       await prisma.payment.create({
         data: {
-          whopPaymentId: paymentId,
-          subscriptionId: subscriptionId,
-          amount: amount,
-          currency: getString(data, 'currency') || "USD",
+          whopPaymentId: data.payment_id,
+          subscriptionId: data.subscription_id,
+          amount: data.amount || 0,
+          currency: data.currency || "USD",
           status: "failed",
-          paymentMethod: getString(data, 'payment_method'),
+          paymentMethod: data.payment_method,
           processedAt: new Date(),
         },
       });
     }
     
-    console.log("Payment failed:", paymentId);
+    console.log("Payment failed:", data.payment_id);
   } catch (error) {
     console.error("Error handling payment failure:", error);
   }

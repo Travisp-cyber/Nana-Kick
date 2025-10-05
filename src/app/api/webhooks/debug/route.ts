@@ -2,9 +2,37 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { whopSdk } from "@/lib/whop-sdk";
 
+interface DebugInfo {
+  timestamp: string;
+  headers: Record<string, string | null>;
+  env: Record<string, string>;
+  body: {
+    event: string;
+    dataKeys: string[];
+    hasData: boolean;
+  } | null;
+  errors: string[];
+  steps: string[];
+  databaseConnected?: boolean;
+  userCount?: number;
+  databaseError?: string;
+  whopSdkWorking?: boolean;
+  whopSdkError?: string;
+  databaseWriteSuccess?: boolean;
+  testUserId?: string;
+  databaseWriteError?: string;
+  signatureValidation?: string;
+  summary?: {
+    webhookReady: boolean;
+    databaseReady: boolean;
+    whopApiReady: boolean;
+    canProcessEvents: boolean;
+  };
+}
+
 // Debug webhook handler to identify issues
 export async function POST(req: NextRequest) {
-  const debugInfo: any = {
+  const debugInfo: DebugInfo = {
     timestamp: new Date().toISOString(),
     headers: {},
     env: {},
@@ -45,10 +73,10 @@ export async function POST(req: NextRequest) {
       const count = await prisma.user.count();
       debugInfo.databaseConnected = true;
       debugInfo.userCount = count;
-    } catch (dbError: any) {
+    } catch (dbError) {
       debugInfo.databaseConnected = false;
-      debugInfo.databaseError = dbError.message;
-      debugInfo.errors.push(`Database error: ${dbError.message}`);
+      debugInfo.databaseError = dbError instanceof Error ? dbError.message : String(dbError);
+      debugInfo.errors.push(`Database error: ${debugInfo.databaseError}`);
     }
 
     // Step 5: Test Whop SDK
@@ -58,17 +86,17 @@ export async function POST(req: NextRequest) {
         // Try to get company info
         const testCall = await whopSdk.app.retrieveCompanyByID({
           companyId: process.env.NEXT_PUBLIC_WHOP_COMPANY_ID || "test",
-        }).catch(err => ({ error: err.message }));
+        }).catch((err: unknown) => ({ error: err instanceof Error ? err.message : String(err) }));
         
-        debugInfo.whopSdkWorking = !testCall.error;
-        if (testCall.error) {
+        debugInfo.whopSdkWorking = !('error' in testCall);
+        if ('error' in testCall && testCall.error) {
           debugInfo.whopSdkError = testCall.error;
           debugInfo.errors.push(`Whop SDK error: ${testCall.error}`);
         }
-      } catch (sdkError: any) {
+      } catch (sdkError) {
         debugInfo.whopSdkWorking = false;
-        debugInfo.whopSdkError = sdkError.message;
-        debugInfo.errors.push(`Whop SDK error: ${sdkError.message}`);
+        debugInfo.whopSdkError = sdkError instanceof Error ? sdkError.message : String(sdkError);
+        debugInfo.errors.push(`Whop SDK error: ${debugInfo.whopSdkError}`);
       }
     } else {
       debugInfo.whopSdkWorking = false;
@@ -94,10 +122,10 @@ export async function POST(req: NextRequest) {
           where: { id: testUser.id },
         });
         debugInfo.steps.push("7. Cleanup successful");
-      } catch (writeError: any) {
+      } catch (writeError) {
         debugInfo.databaseWriteSuccess = false;
-        debugInfo.databaseWriteError = writeError.message;
-        debugInfo.errors.push(`Database write error: ${writeError.message}`);
+        debugInfo.databaseWriteError = writeError instanceof Error ? writeError.message : String(writeError);
+        debugInfo.errors.push(`Database write error: ${debugInfo.databaseWriteError}`);
       }
     }
 
@@ -128,19 +156,20 @@ export async function POST(req: NextRequest) {
       debug: debugInfo,
       recommendation: getRecommendation(debugInfo),
     });
-  } catch (error: any) {
-    debugInfo.errors.push(`Fatal error: ${error.message}`);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    debugInfo.errors.push(`Fatal error: ${errorMessage}`);
     console.error("Webhook debug error:", error);
     
     return NextResponse.json({
       success: false,
       debug: debugInfo,
-      error: error.message,
+      error: errorMessage,
     }, { status: 500 });
   }
 }
 
-function getRecommendation(debugInfo: any): string {
+function getRecommendation(debugInfo: DebugInfo): string {
   if (!debugInfo.env.WHOP_WEBHOOK_SECRET) {
     return "Add WHOP_WEBHOOK_SECRET to your environment variables in Vercel";
   }
