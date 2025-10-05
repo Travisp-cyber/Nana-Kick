@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  whopUserId    String         @unique
+  email         String?        @unique
+  name          String?
+  avatarUrl     String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  accessLogs    AccessLog[]
+  memberships   Membership[]
+  subscriptions Subscription[]
+}
+
+model Company {
+  id            String       @id @default(cuid())
+  whopCompanyId String       @unique
+  name          String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  memberships   Membership[]
+  products      Product[]
+}
+
+model Product {
+  id            String         @id @default(cuid())
+  whopProductId String         @unique
+  companyId     String
+  name          String
+  visibility    String         @default("visible")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  plans         Plan[]
+  company       Company        @relation(fields: [companyId], references: [id])
+  subscriptions Subscription[]
+}
+
+model Plan {
+  id            String         @id @default(cuid())
+  whopPlanId    String         @unique
+  productId     String
+  name          String
+  billingPeriod Json?
+  price         Float?
+  currency      String         @default("USD")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  product       Product        @relation(fields: [productId], references: [id])
+  subscriptions Subscription[]
+}
+
+model Membership {
+  id               String         @id @default(cuid())
+  whopMembershipId String         @unique
+  userId           String
+  companyId        String
+  status           String
+  expiresAt        DateTime?
+  canceledAt       DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  company          Company        @relation(fields: [companyId], references: [id])
+  user             User           @relation(fields: [userId], references: [id])
+  subscriptions    Subscription[]
+
+  @@index([userId, status])
+  @@index([companyId, status])
+}
+
+model Subscription {
+  id                 String      @id @default(cuid())
+  whopSubscriptionId String?     @unique
+  userId             String
+  membershipId       String?
+  productId          String
+  planId             String?
+  status             String
+  validUntil         DateTime?
+  trialEndsAt        DateTime?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  payments           Payment[]
+  membership         Membership? @relation(fields: [membershipId], references: [id])
+  plan               Plan?       @relation(fields: [planId], references: [id])
+  product            Product     @relation(fields: [productId], references: [id])
+  user               User        @relation(fields: [userId], references: [id])
+
+  @@index([userId, status])
+  @@index([productId, status])
+}
+
+model Payment {
+  id             String       @id @default(cuid())
+  whopPaymentId  String?      @unique
+  subscriptionId String
+  amount         Float
+  currency       String       @default("USD")
+  status         String
+  paymentMethod  String?
+  processedAt    DateTime?
+  createdAt      DateTime     @default(now())
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+
+  @@index([subscriptionId, status])
+}
+
+model AccessLog {
+  id        String   @id @default(cuid())
+  userId    String
+  resource  String
+  allowed   Boolean
+  reason    String?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+}
