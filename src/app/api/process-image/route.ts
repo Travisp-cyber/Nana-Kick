@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
+// Configure the API route
+export const runtime = 'nodejs';
+export const maxDuration = 60; // 60 seconds timeout
+
 // --- CORS HEADERS ---
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -57,9 +61,12 @@ export async function POST(request: NextRequest) {
     const imageSizeMB = (imageSizeBytes / (1024 * 1024)).toFixed(2);
     dlog(`Image size: ${imageSizeMB} MB`);
 
-    if (Number(imageSizeMB) > 50) {
+    // Note: Vercel Hobby plan has a 4.5MB request body limit
+    // We set to 4MB to account for base64 encoding overhead
+    const maxSizeMB = 4;
+    if (Number(imageSizeMB) > maxSizeMB) {
       return NextResponse.json(
-        { error: 'Image too large (max 50MB)' },
+        { error: `Image too large (${imageSizeMB}MB). Maximum size is ${maxSizeMB}MB. Please reduce the image size or upgrade to Vercel Pro for larger uploads.` },
         { status: 413, headers: corsHeaders }
       );
     }

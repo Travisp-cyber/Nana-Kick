@@ -1,4 +1,10 @@
 {
+  "functions": {
+    "src/app/api/process-image/route.ts": {
+      "maxDuration": 60,
+      "runtime": "nodejs20.x"
+    }
+  },
   "headers": [
     {
       "source": "/api/(.*)",

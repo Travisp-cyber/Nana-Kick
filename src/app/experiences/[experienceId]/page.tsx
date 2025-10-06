@@ -127,10 +127,70 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
     setSelectedForDeletion(new Set());
   };
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImage = async (file: File): Promise<File> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // Calculate new dimensions while maintaining aspect ratio
+          const maxSize = 2048; // Max width or height
+          if (width > height && width > maxSize) {
+            height = (height * maxSize) / width;
+            width = maxSize;
+          } else if (height > maxSize) {
+            width = (width * maxSize) / height;
+            height = maxSize;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          canvas.toBlob((blob) => {
+            if (blob) {
+              const compressedFile = new File([blob], file.name, {
+                type: 'image/jpeg',
+                lastModified: Date.now(),
+              });
+              resolve(compressedFile);
+            } else {
+              resolve(file); // Fallback to original if compression fails
+            }
+          }, 'image/jpeg', 0.85); // 85% quality
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setSelectedFile(file);
+      // Check if file is larger than 4MB
+      const fileSizeMB = file.size / (1024 * 1024);
+      let processedFile = file;
+      
+      if (fileSizeMB > 4) {
+        // Compress the image
+        setError('Compressing image...');
+        try {
+          processedFile = await compressImage(file);
+          setError(null);
+        } catch (err) {
+          console.error('Error compressing image:', err);
+          setError('Failed to compress image');
+        }
+      }
+      
+      setSelectedFile(processedFile);
       const reader = new FileReader();
       reader.onload = (e) => {
         const imageUrl = e.target?.result as string;
@@ -142,7 +202,7 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
           timestamp: new Date()
         }]);
       };
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(processedFile);
     }
   };
 
@@ -287,7 +347,7 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
                     <span className="font-semibold">Click to upload</span> your image
                   </p>
                   <p className="text-xs text-gray-500">
-                    PNG, JPG or JPEG (MAX. 50MB)
+                    PNG, JPG or JPEG (MAX. 4MB)
                   </p>
                 </div>
                 <input 
