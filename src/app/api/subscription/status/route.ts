@@ -34,7 +34,7 @@ export async function GET() {
           id: membership.company.id,
           name: membership.company.name,
         },
-        subscriptions: membership.subscriptions.map(sub => ({
+        subscriptions: membership.subscriptions.map((sub: any) => ({
           id: sub.id,
           status: sub.status,
           product: {
