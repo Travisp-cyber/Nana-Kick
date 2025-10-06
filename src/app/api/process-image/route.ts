@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
 
     // --- Extract edited image ---
     const parts = candidate.content.parts;
-    const imageParts = parts.filter((p: any) => p.inlineData);
+    const imageParts = parts.filter((p: { inlineData?: unknown }) => p.inlineData);
     if (imageParts.length > 0) {
       const editedImageData = imageParts[0].inlineData as {
         data: string;
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
       },
       { status: 422, headers: corsHeaders }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error processing image:', error);
     const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
