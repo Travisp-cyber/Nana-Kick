@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server';
 import { getWhopSession, hasActiveSubscription, getUserMembership } from '@/lib/auth';
 
+// Shape of subscription with included relations we use in the response
+export type SubscriptionWithRelations = {
+  id: string;
+  status: string;
+  product: { id: string; name: string };
+  plan: { id: string; name: string; price: number | null; currency: string } | null;
+  validUntil: Date | null;
+  trialEndsAt: Date | null;
+};
+
 export async function GET() {
   try {
     // Get current session
@@ -34,7 +44,7 @@ export async function GET() {
           id: membership.company.id,
           name: membership.company.name,
         },
-        subscriptions: membership.subscriptions.map((sub: any) => ({
+        subscriptions: membership.subscriptions.map((sub: SubscriptionWithRelations) => ({
           id: sub.id,
           status: sub.status,
           product: {
