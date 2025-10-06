@@ -287,7 +287,7 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
                     <span className="font-semibold">Click to upload</span> your image
                   </p>
                   <p className="text-xs text-gray-500">
-                    PNG, JPG or JPEG (MAX. 10MB)
+                    PNG, JPG or JPEG (MAX. 50MB)
                   </p>
                 </div>
                 <input 

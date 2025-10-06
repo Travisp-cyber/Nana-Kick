@@ -57,9 +57,9 @@ export async function POST(request: NextRequest) {
     const imageSizeMB = (imageSizeBytes / (1024 * 1024)).toFixed(2);
     dlog(`Image size: ${imageSizeMB} MB`);
 
-    if (Number(imageSizeMB) > 20) {
+    if (Number(imageSizeMB) > 50) {
       return NextResponse.json(
-        { error: 'Image too large (max 20MB)' },
+        { error: 'Image too large (max 50MB)' },
         { status: 413, headers: corsHeaders }
       );
     }
