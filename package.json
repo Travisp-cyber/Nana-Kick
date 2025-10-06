@@ -6,7 +6,10 @@
     "dev": "whop-proxy --command 'next dev --turbopack'",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "dev:mobile": "pnpm --dir apps/mobile start",
+    "dev:all": "turbo run dev --parallel",
+    "build:all": "turbo run build"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -31,6 +34,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.4",
     "tailwindcss": "^4",
+    "turbo": "^2.0.0",
     "typescript": "^5"
   }
 }

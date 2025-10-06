@@ -43,3 +43,10 @@ next-env.d.ts
 /src/generated/prisma
 
 certificates
+
+# Expo / React Native (mobile)
+apps/mobile/.expo
+apps/mobile/.expo-shared
+apps/mobile/ios
+apps/mobile/android
+apps/mobile/dist
