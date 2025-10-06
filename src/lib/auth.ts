@@ -1,5 +1,4 @@
 import { prisma } from './db';
-import { cookies } from 'next/headers';
 
 export interface WhopSession {
   userId: string;
@@ -104,7 +103,7 @@ export async function getUserMembership(userId: string) {
 }
 
 // Sync user data from Whop - simplified version without API calls
-export async function syncUserFromWhop(whopUserId: string, membershipId?: string) {
+export async function syncUserFromWhop(whopUserId: string) {
   try {
     // For now, just return the existing user or create a placeholder
     const user = await prisma.user.upsert({
