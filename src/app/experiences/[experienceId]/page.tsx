@@ -182,7 +182,7 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
         method: 'POST',
         body: formData,
         mode: 'cors', // Explicitly set CORS mode
-        credentials: 'include', // Include cookies if needed
+        credentials: 'omit', // Changed to omit to avoid credential issues
       });
       
       debug('Response status:', response.status);
@@ -229,9 +229,19 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
       }
     } catch (error) {
       console.error('Error submitting form:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      setError(errorMessage);
-      alert(`Network Error: ${errorMessage}`);
+      let errorMessage = 'Unknown error';
+      let errorDetails = '';
+      
+      if (error instanceof TypeError && error.message === 'Load failed') {
+        errorMessage = 'Network request failed';
+        errorDetails = 'This could be due to CORS, network issues, or the API being down. Check the browser console for more details.';
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+        errorDetails = error.stack || '';
+      }
+      
+      setError(`${errorMessage}${errorDetails ? '\n\n' + errorDetails : ''}`);
+      alert(`Error: ${errorMessage}\n\n${errorDetails}\n\nAPI URL: ${apiUrl}`);
     } finally {
       setIsLoading(false);
     }
