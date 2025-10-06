@@ -1,6 +1,7 @@
-"use client";
+'use client';
 
-import { useState } from "react";
+import { useState } from 'react';
+import { getApiUrl, debugApi } from '@/lib/api-config';
 import Image from "next/image";
 
 interface ImageHistoryItem {
@@ -163,34 +164,18 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
       formData.append('image', selectedFile);
       formData.append('instructions', instructions.trim());
 
-      // Detect if we're running inside Whop iframe by checking multiple indicators
-      const isInIframe = window.parent !== window;
-      const isWhopDomain = window.location.hostname.includes('whop.com');
-      const referrerIsWhop = document.referrer.includes('whop.com');
+      // Get the correct API URL based on environment
+      const apiUrl = getApiUrl('/api/process-image');
       
-      debug('=== Environment Detection ===');
-      debug('- Is in iframe:', isInIframe);
-      debug('- Is Whop domain:', isWhopDomain);
-      debug('- Referrer is Whop:', referrerIsWhop);
-      debug('- Window location:', window.location.href);
-      debug('- Document referrer:', document.referrer);
+      debugApi('Environment Detection:', {
+        isInIframe: window.parent !== window,
+        isWhopDomain: window.location.hostname.includes('whop.com'),
+        referrerIsWhop: document.referrer.includes('whop.com'),
+        windowLocation: window.location.href,
+        documentReferrer: document.referrer,
+        apiUrl
+      });
       
-      // Build the API URL based on environment
-      let apiUrl: string;
-      
-      // If we're in an iframe or have Whop referrer, use the production URL
-      if (isInIframe || referrerIsWhop) {
-        // Use the production URL from environment variable
-        const productionUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://nana-kick.vercel.app';
-        apiUrl = `${productionUrl}/api/process-image`;
-        debug('Using production URL for API:', apiUrl);
-      } else {
-        // Local development
-        apiUrl = `${window.location.origin}/api/process-image`;
-        debug('Using local URL for API:', apiUrl);
-      }
-      
-      debug('Final API URL:', apiUrl);
       debug('Submitting with FormData...');
       
       const response = await fetch(apiUrl, {
