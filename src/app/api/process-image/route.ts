@@ -64,10 +64,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // --- Initialize Gemini 2.5 Flash (Nano Banana) ---
+    // --- Initialize Gemini 2.5 Flash Image model ---
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.5-flash-image',
     });
 
     // --- Convert image to base64 for API input ---
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     // --- Edit prompt ---
     const editPrompt = `Edit this image according to the following instructions: ${instructions}`;
 
-    dlog('Processing image with Gemini 2.5 Flash (Nano Banana)...');
+    dlog('Processing image with Gemini 2.5 Flash Image...');
 
     const result = await model.generateContent([imagePart, { text: editPrompt }]);
     const response = result.response;
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
       {
         error: 'No edited image returned',
         message:
-          'Gemini 2.5 Flash did not return an image. Response: ' + textResponse,
+          'Gemini 2.5 Flash Image did not return an image. Response: ' + textResponse,
       },
       { status: 422, headers: corsHeaders }
     );

@@ -159,13 +159,13 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
     
     debug('Submitting form with instructions:', instructions.trim());
 
+    // Get the correct API URL based on environment
+    const apiUrl = getApiUrl('/api/process-image');
+
     try {
       const formData = new FormData();
       formData.append('image', selectedFile);
       formData.append('instructions', instructions.trim());
-
-      // Get the correct API URL based on environment
-      const apiUrl = getApiUrl('/api/process-image');
       
       debugApi('Environment Detection:', {
         isInIframe: window.parent !== window,
