@@ -15,7 +15,13 @@ export async function POST() {
     }
     
     // Sync user data from Whop
-    const user = await syncUserFromWhop(session.userId, session.membershipId);
+    const user = await syncUserFromWhop({
+      userId: session.userId,
+      membershipId: session.membershipId ?? null,
+      status: session.status ?? undefined,
+      planId: session.planId ?? null,
+      currentPeriodEnd: session.currentPeriodEnd ?? null,
+    });
     
     // Log sync activity
     await prisma.accessLog.create({

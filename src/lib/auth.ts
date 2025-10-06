@@ -5,6 +5,9 @@ export interface WhopSession {
   membershipId?: string;
   companyId?: string;
   isValid: boolean;
+  status?: "active" | "canceled" | "expired" | "trialing" | "past_due";
+  planId?: string;
+  currentPeriodEnd?: Date | string;
 }
 
 // Get session from cookies (for server components)
@@ -102,18 +105,36 @@ export async function getUserMembership(userId: string) {
   }
 }
 
-// Sync user data from Whop - simplified version without API calls
-export async function syncUserFromWhop(whopUserId: string) {
+export type WhopSyncInput = {
+  userId: string;
+  membershipId?: string | null;
+  status?: "active" | "canceled" | "expired" | "trialing" | "past_due";
+  planId?: string | null;
+  currentPeriodEnd?: Date | string | null;
+};
+
+// Sync user data from Whop
+export async function syncUserFromWhop(input: WhopSyncInput) {
+  const { userId, membershipId, status, planId, currentPeriodEnd } = input;
+  
   try {
-    // For now, just return the existing user or create a placeholder
     const user = await prisma.user.upsert({
-      where: { whopUserId },
-      create: {
-        whopUserId,
-        email: null,
-        name: 'User ' + whopUserId,
+      where: { whopUserId: userId },
+      update: {
+        membershipId: membershipId ?? undefined,
+        subscriptionStatus: status ?? undefined,
+        planId: planId ?? undefined,
+        currentPeriodEnd: currentPeriodEnd ? new Date(currentPeriodEnd) : undefined,
       },
-      update: {},
+      create: {
+        whopUserId: userId,
+        email: null,
+        name: 'User ' + userId,
+        membershipId: membershipId ?? null,
+        subscriptionStatus: status ?? "active",
+        planId: planId ?? null,
+        currentPeriodEnd: currentPeriodEnd ? new Date(currentPeriodEnd) : null,
+      },
     });
     
     return user;

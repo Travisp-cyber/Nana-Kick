@@ -3,21 +3,26 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
-  id            String         @id @default(cuid())
-  whopUserId    String         @unique
-  email         String?        @unique
-  name          String?
-  avatarUrl     String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  accessLogs    AccessLog[]
-  memberships   Membership[]
-  subscriptions Subscription[]
+  id                 String         @id @default(cuid())
+  whopUserId         String         @unique
+  email              String?        @unique
+  name               String?
+  avatarUrl          String?
+  membershipId       String?
+  subscriptionStatus String?        // active | canceled | expired | trialing | past_due
+  planId             String?
+  currentPeriodEnd   DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  accessLogs         AccessLog[]
+  memberships        Membership[]
+  subscriptions      Subscription[]
 }
 
 model Company {
