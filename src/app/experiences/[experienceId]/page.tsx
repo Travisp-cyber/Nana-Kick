@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { getApiUrl, debugApi } from '@/lib/api-config';
-import Image from "next/image";
+import NextImage from "next/image";
 
 interface ImageHistoryItem {
   url: string;
@@ -365,7 +365,7 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
             <div className="relative w-full flex justify-center">
               <div className="relative max-w-full rounded-lg overflow-hidden shadow-lg">
                 {hoveredImage ? (
-                  <Image
+                  <NextImage
                     key={hoveredImage}
                     src={hoveredImage}
                     alt="Preview thumbnail"
@@ -379,7 +379,7 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
                     priority
                   />
                 ) : (
-                  <Image
+                  <NextImage
                     key={selectedImage}
                     src={selectedImage}
                     alt="Uploaded thumbnail"
