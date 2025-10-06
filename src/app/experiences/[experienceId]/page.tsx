@@ -529,7 +529,7 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
                     }`}
                   >
                     <div className="relative overflow-hidden rounded-lg hover:shadow-lg transition-shadow">
-                      <Image
+                      <NextImage
                         src={item.url}
                         alt={`Version ${index + 1}: ${item.prompt}`}
                         width={160}
