@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
-import { fetchWhopMembership, getRenewalDate, isMembershipActive, verifyWhopSignature } from '@/lib/whop-integration'
-import { getPoolLimit, normalizeTier } from '@/lib/subscription/plans'
+import { fetchWhopMembership, getRenewalDate, verifyWhopSignature } from '@/lib/whop-integration'
+import { getPoolLimit, normalizeTier, type PlanTier } from '@/lib/subscription/plans'
 
 /**
  * POST /api/whop/webhook
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
-  let body: any = {}
+  let body: unknown
   try {
     body = rawBody ? JSON.parse(rawBody) : {}
   } catch {
@@ -27,9 +28,12 @@ export async function POST(req: NextRequest) {
   }
 
   // Best-effort extraction from multiple possible shapes
-  const event = (body.event || body.type || body.action || '').toString()
-  const membershipId = body.membership_id || body.data?.membership_id || body.membership?.id
-  const planName = body.plan?.name || body.data?.plan?.name || body.product?.name
+  const getProp = (obj: unknown, path: string[]): unknown => {
+    return path.reduce((acc: any, key) => (acc && typeof acc === 'object' ? (acc as any)[key] : undefined), obj as any)
+  }
+  const event = String((getProp(body, ['event']) || getProp(body, ['type']) || getProp(body, ['action']) || '') as string)
+  const membershipId = (getProp(body, ['membership_id']) || getProp(body, ['data','membership_id']) || getProp(body, ['membership','id'])) as string | undefined
+  const planName = (getProp(body, ['plan','name']) || getProp(body, ['data','plan','name']) || getProp(body, ['product','name'])) as string | undefined
 
   // Figure out the tier + limits
   const tier = normalizeTier(planName || '')
@@ -62,7 +66,7 @@ export async function POST(req: NextRequest) {
       const resolvedTier = tier || (membership ? normalizeTier(membership.plan?.name || membership.product?.name || '') : null)
       const poolLimit = resolvedTier ? getPoolLimit(resolvedTier) : undefined
 
-      const updatePayload: Record<string, any> = {
+      const updatePayload: { renewal_date: string | null; plan?: PlanTier; pool_limit?: number } = {
         renewal_date: renewalDate,
       }
       if (resolvedTier) updatePayload.plan = resolvedTier

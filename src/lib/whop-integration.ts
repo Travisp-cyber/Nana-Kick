@@ -27,7 +27,9 @@ export async function fetchWhopMembership(membershipId: string, apiKey = process
   return (await res.json()) as WhopMembership
 }
 
-export async function fetchWhopOrder(orderId: string, apiKey = process.env.WHOP_API_KEY): Promise<any | null> {
+export type WhopOrder = { membership_id?: string; membership?: { id?: string } } & Record<string, unknown>
+
+export async function fetchWhopOrder(orderId: string, apiKey = process.env.WHOP_API_KEY): Promise<WhopOrder | null> {
   if (!apiKey) throw new Error('WHOP_API_KEY is not set')
   const res = await fetch(`${WHOP_API_BASE}/orders/${orderId}`, {
     headers: { Authorization: `Bearer ${apiKey}` },
@@ -40,11 +42,6 @@ export async function fetchWhopOrder(orderId: string, apiKey = process.env.WHOP_
   return await res.json()
 }
 
-function parseMembershipTier(m: WhopMembership | null): PlanTier | null {
-  if (!m) return null
-  const name = m.plan?.name || m.product?.name
-  return normalizeTier(name || '')
-}
 
 export function isMembershipActive(m: WhopMembership | null): boolean {
   if (!m) return false

@@ -105,7 +105,7 @@ export async function consumeGeneration(input: {
       community_id: communityId,
       type: 'generation',
       amount: 1,
-    } as any)
+    })
 
   if (insertTxnErr) {
     // Not fatal for limits, but log by returning an error to caller to retry if desired
@@ -147,6 +147,8 @@ export async function resetUsageForDueCommunities(): Promise<{ resetCount: numbe
  * Mock for Nano Banana API. Replace with a real call later.
  */
 async function callNanoBananaMock(_payload: { prompt?: string; communityId: string }): Promise<{ id: string; outputUrl?: string }> {
+  // mark param as used for lint
+  void _payload
   // Simulate processing latency minimally
   await new Promise((r) => setTimeout(r, 20))
   return { id: `mock_${Math.random().toString(36).slice(2)}`, outputUrl: 'https://example.com/output.png' }

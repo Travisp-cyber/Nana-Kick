@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { fetchWhopMembership, fetchWhopOrder, getRenewalDate, isMembershipActive } from '@/lib/whop-integration'
@@ -22,6 +23,7 @@ export async function POST(req: NextRequest) {
       order_id?: string
       tier?: string
       email?: string
+      name?: string
     }
 
     const providedTier = normalizeTier(body.tier || '')
