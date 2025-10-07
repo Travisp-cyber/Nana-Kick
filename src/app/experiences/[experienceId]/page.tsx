@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { getApiUrl, debugApi } from '@/lib/api-config';
 import NextImage from "next/image";
+import Link from "next/link";
 
 interface ImageHistoryItem {
   url: string;
@@ -314,6 +315,16 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
         <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-yellow-400 via-orange-500 to-yellow-600 bg-clip-text text-transparent" style={{ fontFamily: 'var(--font-fredoka)' }}>
           Nana Kick
         </h1>
+      </div>
+
+      {/* Upgrade CTA in top right */}
+      <div className="absolute top-8 right-8">
+        <Link
+          href="/plans"
+          className="px-5 py-2 bg-gradient-to-r from-orange-500 to-yellow-500 text-white rounded-full font-medium shadow-md hover:from-orange-600 hover:to-yellow-600 transition-transform hover:scale-105"
+        >
+          Upgrade
+        </Link>
       </div>
       
       {/* Main content area - centered */}

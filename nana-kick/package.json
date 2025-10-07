@@ -1,0 +1,21 @@
+{
+	"name": "nana-kick",
+	"version": "0.0.1",
+	"scripts": {
+		"build": "whop-react-native build",
+		"upload": "whop-react-native upload",
+		"clean": "whop-react-native clean",
+		"ship": "whop-react-native ship",
+		"preview": "whop-react-native install"
+	},
+	"dependencies": {
+		"@whop/react-native": "^0.0.22",
+		"react": "^19.2.0",
+		"react-native": "0.80.0",
+		"react-native-reanimated": "3.18.0"
+	},
+	"devDependencies": {
+		"@types/react": "^19.2.0",
+		"typescript": "^5.9.3"
+	}
+}
