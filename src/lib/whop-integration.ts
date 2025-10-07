@@ -1,6 +1,5 @@
 import crypto from 'crypto'
 import type { NextRequest } from 'next/server'
-import { normalizeTier, type PlanTier } from '@/lib/subscription/plans'
 
 // Minimal Whop API helpers. We avoid relying on SDK specifics to keep it simple.
 const WHOP_API_BASE = 'https://api.whop.com/v2'
@@ -27,7 +26,11 @@ export async function fetchWhopMembership(membershipId: string, apiKey = process
   return (await res.json()) as WhopMembership
 }
 
-export type WhopOrder = { membership_id?: string; membership?: { id?: string } } & Record<string, unknown>
+export type WhopOrder = {
+  membership_id?: string
+  membership?: { id?: string }
+  data?: { membership_id?: string }
+} & Record<string, unknown>
 
 export async function fetchWhopOrder(orderId: string, apiKey = process.env.WHOP_API_KEY): Promise<WhopOrder | null> {
   if (!apiKey) throw new Error('WHOP_API_KEY is not set')

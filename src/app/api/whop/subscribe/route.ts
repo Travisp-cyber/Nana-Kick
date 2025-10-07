@@ -34,8 +34,12 @@ export async function POST(req: NextRequest) {
         console.error('fetchWhopOrder error', err)
         return null
       })
-      // Try common places where membership id might live
-      membershipId = order?.membership_id || order?.membership?.id || order?.data?.membership_id
+      // Safe nested access to support varying shapes
+      const getProp = (obj: unknown, path: string[]): unknown => {
+        return path.reduce((acc: any, key) => (acc && typeof acc === 'object' ? (acc as any)[key] : undefined), obj as any)
+      }
+      const resolved = (getProp(order, ['membership_id']) || getProp(order, ['membership','id']) || getProp(order, ['data','membership_id'])) as string | undefined
+      membershipId = resolved
     }
 
     if (!membershipId && !providedTier) {
