@@ -24,15 +24,27 @@ export default function PlansPage() {
     const left = dualScreenLeft + (screenWidth - width) / 2;
     const top = dualScreenTop + (screenHeight - height) / 2;
 
-    const win = window.open(
-      url,
-      'whop_checkout',
-      `scrollbars=yes,resizable=yes,width=${width},height=${height},top=${top},left=${left},noopener=yes,noreferrer=yes`
-    );
+    let win: Window | null = null
+    try {
+      // Use _blank to maximize compatibility when inside an iframe (e.g. Whop)
+      win = window.open(
+        url,
+        '_blank',
+        `scrollbars=yes,resizable=yes,width=${width},height=${height},top=${top},left=${left},noopener=yes,noreferrer=yes`
+      );
+    } catch {}
 
     if (!win) {
-      // Popup blocked; fallback to a normal navigation in the current tab
-      window.location.href = url;
+      // Some browsers block window.open from third‑party iframes.
+      // Fallback: synthetic anchor click with target=_blank which is more reliable.
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     }
   }, [router]);
 
