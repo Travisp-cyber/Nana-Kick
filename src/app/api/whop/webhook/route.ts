@@ -41,7 +41,6 @@ export async function POST(req: NextRequest) {
   try {
     // For most updates we need the latest membership state
     const membership = membershipId ? await fetchWhopMembership(membershipId) : null
-    const active = isMembershipActive(membership)
     const renewalDate = getRenewalDate(membership)
 
     // Determine action from event name (defensive: match by keywords)
