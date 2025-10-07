@@ -2,9 +2,44 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useCallback } from 'react';
 
 export default function PlansPage() {
   const router = useRouter();
+
+  // Open Whop checkout in a centered popup window. Fallback to a normal navigation
+  // if the popup is blocked by the browser or the URL is missing.
+  const openCheckout = useCallback((url?: string) => {
+    if (!url) {
+      router.push('/plans');
+      return;
+    }
+
+    const width = 520;
+    const height = 720;
+    const dualScreenLeft = window.screenLeft ?? window.screenX ?? 0;
+    const dualScreenTop = window.screenTop ?? window.screenY ?? 0;
+    const screenWidth = window.innerWidth ?? document.documentElement.clientWidth ?? screen.width;
+    const screenHeight = window.innerHeight ?? document.documentElement.clientHeight ?? screen.height;
+    const left = dualScreenLeft + (screenWidth - width) / 2;
+    const top = dualScreenTop + (screenHeight - height) / 2;
+
+    const win = window.open(
+      url,
+      'whop_checkout',
+      `scrollbars=yes,resizable=yes,width=${width},height=${height},top=${top},left=${left},noopener=yes,noreferrer=yes`
+    );
+
+    if (!win) {
+      // Popup blocked; fallback to a normal navigation in the current tab
+      window.location.href = url;
+    }
+  }, [router]);
+
+  const STARTER_URL = process.env.NEXT_PUBLIC_WHOP_CHECKOUT_STARTER_URL;
+  const CREATOR_URL = process.env.NEXT_PUBLIC_WHOP_CHECKOUT_CREATOR_URL;
+  const PRO_URL = process.env.NEXT_PUBLIC_WHOP_CHECKOUT_PRO_URL;
+
   return (
     <div className="min-h-screen bg-neutral-950 text-white">
       <div className="max-w-6xl mx-auto px-4 py-16">
@@ -48,9 +83,8 @@ export default function PlansPage() {
               <li className="flex items-center gap-2"><span className="text-orange-500">•</span> Custom prompts</li>
             </ul>
             <Link
-              href={process.env.NEXT_PUBLIC_WHOP_CHECKOUT_STARTER_URL || '#'}
-              target="_blank"
-              rel="noopener noreferrer"
+              href={STARTER_URL || '#'}
+              onClick={(e) => { e.preventDefault(); openCheckout(STARTER_URL || undefined); }}
               className="mt-auto text-center bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl py-3 transition-colors"
             >
               Upgrade to Starter
@@ -77,9 +111,8 @@ export default function PlansPage() {
               <li className="flex items-center gap-2"><span className="text-orange-500">•</span> Priority support</li>
             </ul>
             <Link
-              href={process.env.NEXT_PUBLIC_WHOP_CHECKOUT_CREATOR_URL || '#'}
-              target="_blank"
-              rel="noopener noreferrer"
+              href={CREATOR_URL || '#'}
+              onClick={(e) => { e.preventDefault(); openCheckout(CREATOR_URL || undefined); }}
               className="mt-auto text-center bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white rounded-xl py-3 transition-colors"
             >
               Upgrade to Creator
@@ -103,9 +136,8 @@ export default function PlansPage() {
               <li className="flex items-center gap-2"><span className="text-orange-500">•</span> API access</li>
             </ul>
             <Link
-              href={process.env.NEXT_PUBLIC_WHOP_CHECKOUT_PRO_URL || '#'}
-              target="_blank"
-              rel="noopener noreferrer"
+              href={PRO_URL || '#'}
+              onClick={(e) => { e.preventDefault(); openCheckout(PRO_URL || undefined); }}
               className="mt-auto text-center bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl py-3 transition-colors"
             >
               Upgrade to Professional
