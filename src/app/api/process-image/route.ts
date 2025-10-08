@@ -27,6 +27,16 @@ export async function POST(request: NextRequest) {
 
   // Members-only gate (admins bypass)
   const gate = await requireMemberOrAdmin();
+  
+  // Debug logging for gate check
+  console.log('Gate check:', {
+    allowed: gate.allowed,
+    reason: gate.reason,
+    userId: gate.session?.userId,
+    agentId: process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID,
+    adminIds: process.env.ADMIN_WHOP_USER_IDS,
+  });
+  
   if (!gate.allowed) {
     return NextResponse.json(
       { error: 'Members only' },
