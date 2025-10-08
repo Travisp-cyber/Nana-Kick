@@ -2,10 +2,18 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback } from 'react';
+import { useCallback, useState, useMemo } from 'react';
+import { useIframeSdk } from '@whop/react';
 
 export default function PlansPage() {
   const router = useRouter();
+  const iframeSdk = useIframeSdk();
+  const [error, setError] = useState<string | null>(null);
+
+  const isEmbedded = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return window.parent !== window;
+  }, []);
 
   // Open Whop checkout in a centered popup window. Fallback to a normal navigation
   // if the popup is blocked by the browser or the URL is missing.
@@ -48,9 +56,38 @@ export default function PlansPage() {
     }
   }, [router]);
 
+  const STARTER_PLAN_ID = process.env.NEXT_PUBLIC_WHOP_PLAN_STARTER_ID;
+  const CREATOR_PLAN_ID = process.env.NEXT_PUBLIC_WHOP_PLAN_CREATOR_ID;
+  const PRO_PLAN_ID = process.env.NEXT_PUBLIC_WHOP_PLAN_PRO_ID;
+  const BRAND_PLAN_ID = process.env.NEXT_PUBLIC_WHOP_PLAN_BRAND_ID;
+
   const STARTER_URL = process.env.NEXT_PUBLIC_WHOP_CHECKOUT_STARTER_URL;
   const CREATOR_URL = process.env.NEXT_PUBLIC_WHOP_CHECKOUT_CREATOR_URL;
   const PRO_URL = process.env.NEXT_PUBLIC_WHOP_CHECKOUT_PRO_URL;
+  const BRAND_URL = process.env.NEXT_PUBLIC_WHOP_CHECKOUT_BRAND_URL;
+
+  async function handlePurchase(planId: string | undefined, fallbackUrl?: string) {
+    setError(null);
+
+    // Prefer in-iframe purchase if embedded and we have a planId
+    if (isEmbedded && planId) {
+      try {
+        const res = await iframeSdk.inAppPurchase({ planId });
+        if (res.status !== 'ok') {
+          setError(res.error || 'Purchase failed');
+        }
+        return;
+      } catch (e: unknown) {
+        console.error('inAppPurchase error:', e);
+        const message = e && typeof e === 'object' && 'message' in e ? String((e as { message?: unknown }).message) : 'Purchase failed';
+        setError(message);
+        // Fall through to hosted checkout as a backup
+      }
+    }
+
+    // Fallback: hosted checkout URL in new tab/window
+    openCheckout(fallbackUrl);
+  }
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white">
@@ -77,7 +114,7 @@ export default function PlansPage() {
         </div>
 
         {/* Pricing grid */}
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-4 gap-6">
           {/* Starter */}
           <div className="rounded-2xl border border-white/10 bg-neutral-900 p-8 flex flex-col">
             <div className="mb-6">
@@ -96,7 +133,7 @@ export default function PlansPage() {
             </ul>
             <Link
               href={STARTER_URL || '#'}
-              onClick={(e) => { e.preventDefault(); openCheckout(STARTER_URL || undefined); }}
+              onClick={(e) => { e.preventDefault(); handlePurchase(STARTER_PLAN_ID, STARTER_URL || undefined); }}
               className="mt-auto text-center bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl py-3 transition-colors"
             >
               Upgrade to Starter
@@ -124,10 +161,34 @@ export default function PlansPage() {
             </ul>
             <Link
               href={CREATOR_URL || '#'}
-              onClick={(e) => { e.preventDefault(); openCheckout(CREATOR_URL || undefined); }}
+              onClick={(e) => { e.preventDefault(); handlePurchase(CREATOR_PLAN_ID, CREATOR_URL || undefined); }}
               className="mt-auto text-center bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white rounded-xl py-3 transition-colors"
             >
               Upgrade to Creator
+            </Link>
+          </div>
+
+          {/* Brand */}
+          <div className="rounded-2xl border border-white/10 bg-neutral-900 p-8 flex flex-col">
+            <div className="mb-6">
+              <h3 className="text-2xl font-semibold">Brand</h3>
+              <p className="text-sm text-gray-400">Great for teams and small brands</p>
+            </div>
+            <div className="mb-6">
+              <p className="text-5xl font-bold">$69</p>
+              <p className="text-gray-400">per month</p>
+            </div>
+            <ul className="space-y-3 text-sm text-gray-300 mb-8">
+              <li className="flex items-center gap-2"><span className="text-orange-500">•</span> All Creator features</li>
+              <li className="flex items-center gap-2"><span className="text-orange-500">•</span> Team collaboration</li>
+              <li className="flex items-center gap-2"><span className="text-orange-500">•</span> Higher limits</li>
+            </ul>
+            <Link
+              href={BRAND_URL || '#'}
+              onClick={(e) => { e.preventDefault(); handlePurchase(BRAND_PLAN_ID, BRAND_URL || undefined); }}
+              className="mt-auto text-center bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl py-3 transition-colors"
+            >
+              Upgrade to Brand
             </Link>
           </div>
 
@@ -149,7 +210,7 @@ export default function PlansPage() {
             </ul>
             <Link
               href={PRO_URL || '#'}
-              onClick={(e) => { e.preventDefault(); openCheckout(PRO_URL || undefined); }}
+              onClick={(e) => { e.preventDefault(); handlePurchase(PRO_PLAN_ID, PRO_URL || undefined); }}
               className="mt-auto text-center bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl py-3 transition-colors"
             >
               Upgrade to Professional
@@ -157,6 +218,11 @@ export default function PlansPage() {
           </div>
         </div>
       </div>
+      {error && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-red-600 text-white px-4 py-2 rounded-lg shadow-md">
+          {error}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,65 +1,79 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { verifyWhopSignature, fetchWhopMembership, getRenewalDate } from "@/lib/whop-integration";
+import { normalizeTier, getPoolLimit, type PlanTier } from "@/lib/subscription/plans";
 
 export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    
-    console.log("Webhook received:", JSON.stringify(body, null, 2));
+  // Read raw body for signature verification
+  const rawBody = await req.text().catch(() => "");
 
-    // For now, just save a basic record to track the event
+  // Verify signature in production
+  const signatureOk = verifyWhopSignature(req, rawBody);
+  if (!signatureOk && process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+  }
+
+  let body: any = {};
+  try {
+    body = rawBody ? JSON.parse(rawBody) : {};
+  } catch {
+    body = {};
+  }
+
+  try {
+    console.log("[Whop Webhook] Received:", JSON.stringify(body, null, 2));
+
+    // Extract basic info from the webhook
+    const eventType: string = body.event || body.action || body.type || "unknown";
+    const membershipId: string | undefined = body.membership_id || body.data?.membership_id || body.membership?.id;
+    const userId: string | undefined = body.user_id || body.data?.user_id || body.user?.id;
+    const email: string | undefined = body.email || body.data?.email || body.user?.email;
+
+    // Upsert user if available
     try {
-      // Extract basic info from the webhook
-      const eventType = body.event || body.action || 'unknown';
-      const membershipId = body.membership_id || body.data?.membership_id;
-      const userId = body.user_id || body.data?.user_id;
-      const email = body.email || body.data?.email;
-      
-      // If we have user info, create or update user
       if (userId || email) {
         const userWhopId = userId || `email-${email}`;
         await prisma.user.upsert({
           where: { whopUserId: userWhopId },
           create: {
             whopUserId: userWhopId,
-            email: email,
-            name: body.username || body.data?.username || email?.split('@')[0],
+            email: email ?? null,
+            name: body.username || body.data?.username || email?.split('@')[0] || null,
           },
           update: {
-            email: email || undefined,
+            email: email ?? undefined,
           },
         });
-        
-        console.log("User saved:", userWhopId);
+        console.log("[Whop Webhook] User upserted:", userWhopId);
       }
-      
-      // If it looks like a purchase event (starts with pay_), handle it
-      if (typeof body.event === 'string' && body.event.startsWith('pay_') && membershipId) {
+    } catch (dbUserErr) {
+      console.error("[Whop Webhook] User upsert error:", dbUserErr);
+    }
+
+    // If it looks like a purchase event (pay_*) and we have membershipId, ensure membership + company exist in Prisma
+    try {
+      if (typeof eventType === 'string' && eventType.startsWith('pay_') && membershipId) {
         const companyId = body.company_id || process.env.NEXT_PUBLIC_WHOP_COMPANY_ID || 'default';
-        
-        // Ensure company exists
+
         const company = await prisma.company.upsert({
           where: { whopCompanyId: companyId },
-          create: {
-            whopCompanyId: companyId,
-            name: body.company_name || "Default Company",
-          },
+          create: { whopCompanyId: companyId, name: body.company_name || "Default Company" },
           update: {},
         });
-        
-        // Get or create user
+
         const userWhopId = userId || `unknown-${Date.now()}`;
         const user = await prisma.user.upsert({
           where: { whopUserId: userWhopId },
           create: {
             whopUserId: userWhopId,
-            email: email,
+            email: email ?? null,
             name: body.username || email?.split('@')[0] || "Unknown User",
           },
           update: {},
         });
-        
-        // Create membership
+
         await prisma.membership.upsert({
           where: { whopMembershipId: membershipId },
           create: {
@@ -68,22 +82,58 @@ export async function POST(req: NextRequest) {
             companyId: company.id,
             status: "valid",
           },
-          update: {
-            status: "valid",
-          },
+          update: { status: "valid" },
         });
-        
-        console.log("Purchase processed:", { eventType, membershipId, userId: user.id });
+
+        console.log("[Whop Webhook] Purchase processed:", { eventType, membershipId, userId: user.id });
       }
-      
-    } catch (dbError) {
-      console.error("Database error:", dbError);
-      // Don't fail the webhook, just log the error
+    } catch (dbPurchaseErr) {
+      console.error("[Whop Webhook] Purchase upsert error:", dbPurchaseErr);
+    }
+
+    // Member creation/update in Supabase based on membership events
+    try {
+      const evt = String(eventType).toLowerCase();
+      const isActivation = evt.includes('went_valid') || evt.includes('payment') || evt.includes('install');
+      const isUpgradeOrRenewal = evt.includes('upgrade') || evt.includes('renew') || evt.includes('plan.updated');
+
+      if ((isActivation || isUpgradeOrRenewal) && membershipId && email) {
+        // Fetch latest membership from Whop to get plan/product and period end
+        const membership = await fetchWhopMembership(membershipId).catch(() => null);
+        const renewalDate = getRenewalDate(membership);
+        const resolvedTier: PlanTier | null = normalizeTier(
+          membership?.plan?.name || membership?.product?.name || body.plan?.name || body.product?.name || ''
+        );
+        const poolLimit = resolvedTier ? getPoolLimit(resolvedTier) : undefined;
+
+        // Upsert member: create if doesn't exist, update plan/limits if exists
+        const { error: upsertErr } = await supabaseAdmin
+          .from('members')
+          .upsert({
+            email: email,
+            plan: resolvedTier || 'starter',
+            pool_limit: poolLimit ?? getPoolLimit('starter'),
+            renewal_date: renewalDate,
+            current_usage: 0,
+          }, {
+            onConflict: 'email',
+            ignoreDuplicates: false,
+          });
+
+        if (upsertErr) {
+          console.error('[Whop Webhook] Member upsert error:', upsertErr);
+        } else {
+          console.log('[Whop Webhook] Member upserted for membership', membershipId, email);
+        }
+      }
+    } catch (memberErr) {
+      console.error('[Whop Webhook] Member sync error:', memberErr);
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Webhook error:", error);
-    return NextResponse.json({ success: true }); // Always return success to prevent retries
+    console.error("[Whop Webhook] Handler error:", error);
+    // Always return success to prevent retries, but log for diagnostics
+    return NextResponse.json({ success: true });
   }
 }

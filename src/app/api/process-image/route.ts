@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { requireMemberOrAdmin } from '@/lib/auth';
 
 // Configure the API route
 export const runtime = 'nodejs';
@@ -23,6 +24,15 @@ export async function POST(request: NextRequest) {
   const dlog = (...args: unknown[]) => {
     if (!isProd) console.log(...args);
   };
+
+  // Members-only gate (admins bypass)
+  const gate = await requireMemberOrAdmin();
+  if (!gate.allowed) {
+    return NextResponse.json(
+      { error: 'Members only' },
+      { status: 403, headers: corsHeaders }
+    );
+  }
 
   dlog('=== API Route Called ===');
   dlog('Method:', request.method);

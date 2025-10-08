@@ -175,9 +175,55 @@ In your Whop dashboard, configure these URLs:
 - **Batch Processing**: Edit multiple images at once
 - **Advanced Filters**: Pre-built editing templates
 
-## 🤝 Contributing
+## 🤝 Contributing & Getting Help
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions, bug reports, and feature requests are welcome! To help me assist you effectively, please provide the following context:
+
+### 🐛 Reporting Bugs
+
+When reporting a bug, include:
+
+- **Environment Details**:
+  - Node.js version: `node --version`
+  - npm/yarn version
+  - Operating system (macOS, Windows, Linux)
+  - Browser (if frontend issue)
+
+- **Steps to Reproduce**:
+  1. Clear, numbered steps to recreate the issue
+  2. Include specific commands, URLs, or actions taken
+  3. Attach screenshots or screen recordings if applicable
+
+- **Expected vs. Actual Behavior**:
+  - What you expected to happen
+  - What actually happened
+  - Error messages (full stack traces are helpful!)
+
+- **Code Context**:
+  - Relevant file paths and line numbers
+  - Code snippets showing the problematic area
+  - Recent changes that might be related
+
+### ✨ Requesting Features
+
+When requesting a feature, include:
+
+- **Use Case**: Describe the problem you're trying to solve
+- **Proposed Solution**: Your idea for how it should work
+- **Alternatives Considered**: Other approaches you've thought about
+- **Priority**: How urgent is this for your workflow?
+
+### 🔐 Security Note
+
+**Never share actual API keys, tokens, or secrets in issues or pull requests.** If your issue involves authentication or API configuration, use placeholders like `{{GOOGLE_AI_API_KEY}}` or `{{WHOP_API_KEY}}`.
+
+### 💬 Questions & Support
+
+For general questions:
+- Check existing issues first
+- Include what you've already tried
+- Share relevant documentation you've consulted
+- Provide context about your specific setup or use case
 
 ## 📄 License
 

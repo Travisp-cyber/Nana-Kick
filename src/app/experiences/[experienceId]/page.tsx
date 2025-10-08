@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { getApiUrl, debugApi } from '@/lib/api-config';
 import NextImage from "next/image";
 import Link from "next/link";
+import { UsageStatus } from '@/components/UsageStatus';
 
 interface ImageHistoryItem {
   url: string;
@@ -24,12 +25,34 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
   const [error, setError] = useState<string | null>(null);
   const [isDeleteMode, setIsDeleteMode] = useState<boolean>(false);
   const [selectedForDeletion, setSelectedForDeletion] = useState<Set<number>>(new Set());
-  const [hoveredImage, setHoveredImage] = useState<string | null>(null);
+const [hoveredImage, setHoveredImage] = useState<string | null>(null);
+  const [isMember, setIsMember] = useState<boolean>(false);
+  const [checkedMembership, setCheckedMembership] = useState<boolean>(false);
+  const [showGate, setShowGate] = useState<boolean>(false);
 
   // Debug logger (no-op in production)
   const debug = (...args: unknown[]) => {
     if (process.env.NODE_ENV !== 'production') console.log(...args);
   };
+
+  // Resolve membership status (admin or subscriber allowed)
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await fetch('/api/whoami', { cache: 'no-store' });
+        const json = await res.json();
+        if (!cancelled) {
+          setIsMember(Boolean(json?.allowed));
+          setCheckedMembership(true);
+        }
+      } catch {
+        if (!cancelled) setCheckedMembership(true);
+      }
+    }
+    load();
+    return () => { cancelled = true };
+  }, []);
 
   const restoreFromHistory = async (historyItem: ImageHistoryItem) => {
     // Don't restore if in delete mode
@@ -317,6 +340,12 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
         </h1>
       </div>
 
+      {/* Usage status in top center */}
+      <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50">
+        {/* member_id can come from search param or env; component handles both */}
+        <UsageStatus />
+      </div>
+
       {/* Upgrade CTA in top right */}
       <div className="absolute top-8 right-8">
         <Link
@@ -336,6 +365,12 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
             <div className="w-full max-w-md">
               <label 
                 htmlFor="thumbnail-upload" 
+                onClick={(e) => {
+                  if (!isMember) {
+                    e.preventDefault();
+                    setShowGate(true);
+                  }
+                }}
                 className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-2xl cursor-pointer bg-white hover:bg-gray-50 transition-all hover:border-orange-300"
               >
                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
@@ -435,7 +470,7 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
               <div className="flex gap-4 justify-center">
                 <button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isLoading || !isMember}
                   className="px-8 py-3 bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-full font-medium transition-all transform hover:scale-105 shadow-md hover:shadow-lg"
                 >
                   {isLoading ? (
@@ -467,6 +502,20 @@ export default function ExperiencePage({ }: ExperiencePageProps) {
         </div>
       </div>
       
+      {/* Members-only overlay */}
+      {!checkedMembership ? null : (!isMember && showGate) ? (
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20">
+          <div className="mx-4 w-full max-w-xl rounded-2xl bg-neutral-900/90 text-white p-6 shadow-xl border border-white/10 backdrop-blur">
+            <h3 className="text-lg font-semibold mb-2">Members only</h3>
+            <p className="text-sm text-white/80 mb-4">Please subscribe to unlock image editing.</p>
+            <div className="flex gap-3">
+              <Link href="/plans" className="px-5 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-medium">View Plans</Link>
+              <button onClick={() => setShowGate(false)} className="px-5 py-2 rounded-full bg-neutral-700 hover:bg-neutral-600 text-white">Close</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* Image History Side Panel */}
       {imageHistory.length > 0 && (
         <>

@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
 
     if (isCancellation) {
       // Schema does not include a status column. Record no-op but accept to prevent retries.
-      console.warn('Cancellation event received but communities.status column is not present; skipping state change')
+      console.warn('Cancellation event received but members.status column is not present; skipping state change')
       return NextResponse.json({ ok: true, skipped: true })
     }
 
@@ -65,30 +65,29 @@ export async function POST(req: NextRequest) {
       const resolvedTier = tier || (membership ? normalizeTier(membership.plan?.name || membership.product?.name || '') : null)
       const poolLimit = resolvedTier ? getPoolLimit(resolvedTier) : undefined
 
-      const updatePayload: { renewal_date: string | null; plan?: PlanTier; pool_limit?: number } = {
-        renewal_date: renewalDate,
-      }
-      if (resolvedTier) updatePayload.plan = resolvedTier
-      if (poolLimit != null) updatePayload.pool_limit = poolLimit
-
-      // Update existing community record by membership id
-      let updateErr: any = null
-      {
-        const { error } = await supabaseAdmin
-          .from('communities')
-          .update(updatePayload)
-          .eq('whop_membership_id', membershipId)
-        updateErr = error
-      }
-
-      if (updateErr && String(updateErr?.message || '').toLowerCase().includes('column "whop_membership_id"')) {
-        console.warn('communities.whop_membership_id not found in schema, skipping renewal/upgrade update')
+      // Extract email from membership
+      const email = (membership as any)?.email || (membership as any)?.user?.email
+      if (!email) {
+        console.warn('Webhook renewal/upgrade without email; skipping update')
         return NextResponse.json({ ok: true, skipped: true })
       }
 
-      if (updateErr) {
-        console.error('Supabase update error (renew/upgrade)', updateErr)
-        return NextResponse.json({ error: 'Failed to update community' }, { status: 500 })
+      // Upsert member record (create if doesn't exist, update if exists)
+      const { error: upsertErr } = await supabaseAdmin
+        .from('members')
+        .upsert({
+          email: email,
+          plan: resolvedTier || 'starter',
+          pool_limit: poolLimit ?? getPoolLimit('starter'),
+          renewal_date: renewalDate,
+        }, {
+          onConflict: 'email',
+          ignoreDuplicates: false,
+        })
+
+      if (upsertErr) {
+        console.error('Supabase upsert error (renew/upgrade)', upsertErr)
+        return NextResponse.json({ error: 'Failed to upsert member' }, { status: 500 })
       }
 
       return NextResponse.json({ ok: true })

@@ -8,13 +8,13 @@ import { getPoolLimit, normalizeTier, type PlanTier } from '@/lib/subscription/p
  * POST /api/whop/subscribe
  *
  * Purpose: Handle a new subscription after checkout. This route verifies the subscription
- * with Whop and creates a community record in Supabase.
+ * with Whop and creates a member record in Supabase.
  *
  * Expected inputs (flexible to make debugging simple):
  * - membership_id?: string   // Preferred: Whop membership ID
  * - order_id?: string        // Alternative: Whop order ID (we'll resolve to membership)
  * - tier?: 'starter'|'creator'|'brand'|'pro' // Optional manual override for tier
- * - email?: string           // Optional: future usage for linking members
+ * - email?: string           // Required: email for member identification
  */
 export async function POST(req: NextRequest) {
   try {
@@ -66,49 +66,33 @@ export async function POST(req: NextRequest) {
 
     const poolLimit = getPoolLimit(tier)
     const renewalDate = getRenewalDate(membership)
-    const name = (body as any).name || `Community ${new Date().toISOString().slice(0,10)} ${tier}`
+    const email = body.email || (membership as any)?.email || (membership as any)?.user?.email
 
-    // Insert community row and return id. We try with whop_membership_id if present, then retry without if schema lacks it.
-    let insertErr: any = null
-    let insertedId: string | null = null
-    {
-      const { data, error } = await supabaseAdmin
-        .from('communities')
-        .insert({
-          name,
-          plan: tier,
-          pool_limit: poolLimit,
-          renewal_date: renewalDate,
-          current_usage: 0,
-          member_count: 1,
-          whop_membership_id: membershipId || null,
-        } as any)
-        .select('id')
-      insertErr = error
-      if (!error && data && data.length > 0) insertedId = (data[0] as any).id
+    if (!email) {
+      return NextResponse.json({ error: 'Email is required' }, { status: 400 })
     }
 
-    if (insertErr && String(insertErr?.message || '').toLowerCase().includes('column \"whop_membership_id\"')) {
-      // Retry without whop_membership_id
-      const { data: data2, error: retryErr } = await supabaseAdmin
-        .from('communities')
-        .insert({
-          name,
-          plan: tier,
-          pool_limit: poolLimit,
-          renewal_date: renewalDate,
-          current_usage: 0,
-          member_count: 1,
-        })
-        .select('id')
-      insertErr = retryErr
-      if (!retryErr && data2 && data2.length > 0) insertedId = (data2[0] as any).id
+    // Upsert member row (create if doesn't exist, update if exists)
+    const { data, error: upsertErr } = await supabaseAdmin
+      .from('members')
+      .upsert({
+        email,
+        plan: tier,
+        pool_limit: poolLimit,
+        renewal_date: renewalDate,
+        current_usage: 0,
+      }, {
+        onConflict: 'email',
+        ignoreDuplicates: false,
+      })
+      .select('id')
+
+    if (upsertErr) {
+      console.error('Supabase upsert error (members)', upsertErr)
+      return NextResponse.json({ error: 'Failed to create/update member', details: upsertErr.message }, { status: 500 })
     }
 
-    if (insertErr) {
-      console.error('Supabase insert error (communities)', insertErr)
-      return NextResponse.json({ error: 'Failed to create community', details: insertErr.message }, { status: 500 })
-    }
+    const insertedId = data && data.length > 0 ? (data[0] as any).id : null
 
     return NextResponse.json({
       ok: true,

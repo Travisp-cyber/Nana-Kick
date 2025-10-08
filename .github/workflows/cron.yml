@@ -1,0 +1,35 @@
+name: Monthly Usage Reset
+
+on:
+  schedule:
+    - cron: "0 0 * * *"  # daily at 00:00 UTC
+  workflow_dispatch:
+
+jobs:
+  reset-usage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call /api/usage/reset
+        env:
+          BASE_URL: ${{ vars.PRODUCTION_URL }}
+          CRON_SECRET: ${{ secrets.USAGE_CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BASE_URL:-}" ]; then
+            echo "Repository variable PRODUCTION_URL is not set. Set it to your deployed URL (e.g., https://your-app.vercel.app)." >&2
+            exit 1
+          fi
+          URL="${BASE_URL%/}/api/usage/reset"
+          echo "POST $URL"
+          if [ -n "${CRON_SECRET:-}" ]; then
+            RESP=$(curl -sS -w "\nHTTP_STATUS=%{http_code}\n" -X POST "$URL" \
+              -H "x-cron-secret: ${CRON_SECRET}" -H "Content-Type: application/json")
+          else
+            RESP=$(curl -sS -w "\nHTTP_STATUS=%{http_code}\n" -X POST "$URL" -H "Content-Type: application/json")
+          fi
+          echo "$RESP"
+          STATUS=$(printf "%s" "$RESP" | sed -n 's/^HTTP_STATUS=\([0-9][0-9][0-9]\)$/\1/p')
+          if [ "$STATUS" != "200" ]; then
+            echo "Request failed with status $STATUS" >&2
+            exit 1
+          fi

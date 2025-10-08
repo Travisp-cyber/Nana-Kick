@@ -1,4 +1,6 @@
 import { prisma } from './db';
+import { headers } from 'next/headers';
+import { whopSdk } from '@/lib/whop-sdk';
 
 export interface WhopSession {
   userId: string;
@@ -10,13 +12,27 @@ export interface WhopSession {
   currentPeriodEnd?: Date | string;
 }
 
-// Get session from cookies (for server components)
+// Resolve a Whop session from incoming request headers (works inside Whop iFrame)
 export async function getWhopSession(): Promise<WhopSession | null> {
   try {
-    // For now, just return null - implement proper session handling later
-    return null;
-  } catch (error) {
-    console.error('Error getting Whop session:', error);
+    const h = await headers();
+    // The @whop/api SDK can verify headers and return the current user context
+    type VerifyReturn = { userId?: string; membershipId?: string; companyId?: string; status?: string; planId?: string; currentPeriodEnd?: string } | null;
+    const verifier = (whopSdk as unknown as { verifyUserToken?: (h: Headers) => Promise<VerifyReturn> }).verifyUserToken;
+    const tokenInfo = verifier ? await verifier(h) : null;
+    if (!tokenInfo || !tokenInfo.userId) return null;
+
+    return {
+      userId: String(tokenInfo.userId),
+      membershipId: tokenInfo.membershipId || undefined,
+      companyId: tokenInfo.companyId || undefined,
+      isValid: true,
+      status: tokenInfo.status || undefined,
+      planId: tokenInfo.planId || undefined,
+      currentPeriodEnd: tokenInfo.currentPeriodEnd || undefined,
+    } as WhopSession;
+  } catch {
+    // In non-Whop contexts, this will fail; treat as no session
     return null;
   }
 }
@@ -180,4 +196,36 @@ export async function requireSubscription(productId?: string) {
     hasSubscription,
     session,
   };
+}
+
+// Treat certain Whop token statuses as active subscription
+function isWhopStatusActive(status?: string | null) {
+  if (!status) return false;
+  const s = String(status).toLowerCase();
+  return s === 'active' || s === 'valid' || s === 'trialing' || s === 'past_due';
+}
+
+// Gate access: allow admins always; otherwise require active subscription
+export async function requireMemberOrAdmin() {
+  const session = await getWhopSession();
+  const adminList = (process.env.ADMIN_WHOP_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+  const agent = process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID;
+
+  if (session && (adminList.includes(session.userId) || (agent && session.userId === agent))) {
+    return { allowed: true, reason: 'admin', session } as const;
+  }
+
+  // If running outside Whop (no session), block
+  if (!session) {
+    return { allowed: false, reason: 'no_session', session: null } as const;
+  }
+
+  // If the Whop token indicates an active/valid membership (or includes a membership id), allow
+  if (isWhopStatusActive(session.status as string | undefined) || !!session.membershipId) {
+    return { allowed: true, reason: 'whop_token', session } as const;
+  }
+
+  // Fallback to local database subscription check
+  const hasSub = await hasActiveSubscription(session.userId);
+  return { allowed: hasSub, reason: hasSub ? 'member' : 'no_subscription', session } as const;
 }
