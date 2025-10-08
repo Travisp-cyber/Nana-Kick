@@ -27,7 +27,7 @@ export async function consumeGeneration(input: {
 } | {
   ok: false
   error: string
-}>
+}> {
   const { memberId } = input
 
   // 1) Load current usage snapshot (include plan for overage pricing)
@@ -146,7 +146,7 @@ export async function resetUsageForDueMembers(): Promise<{ resetCount: number; n
 /**
  * Mock for Nano Banana API. Replace with a real call later.
  */
-async function callNanoBananaMock(_payload: { prompt?: string; memberId: string }): Promise<{ id: string; outputUrl?: string }>
+async function callNanoBananaMock(_payload: { prompt?: string; memberId: string }): Promise<{ id: string; outputUrl?: string }> {
   // mark param as used for lint
   void _payload
   // Simulate processing latency minimally

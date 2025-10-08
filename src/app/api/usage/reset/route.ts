@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { resetUsageForDueCommunities } from '@/lib/usage'
+import { resetUsageForDueMembers } from '@/lib/usage'
 
 async function handleReset(req: NextRequest) {
   // Optional simple auth for cron
@@ -11,7 +11,7 @@ async function handleReset(req: NextRequest) {
     }
   }
 
-  const result = await resetUsageForDueCommunities()
+  const result = await resetUsageForDueMembers()
   return NextResponse.json({ ok: true, ...result })
 }
 
