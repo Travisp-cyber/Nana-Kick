@@ -1,11 +1,7 @@
 import { ReactNode } from 'react'
-import { redirect } from 'next/navigation'
-import { requireMemberOrAdmin } from '@/lib/auth'
 
-export default async function DiscoverLayout({ children }: { children: ReactNode }) {
-  const gate = await requireMemberOrAdmin()
-  if (!gate.allowed) {
-    redirect('/plans')
-  }
+export default function DiscoverLayout({ children }: { children: ReactNode }) {
+  // Make discover page publicly accessible - it's a landing page
+  // Auth is enforced in the actual app routes (experiences, dashboard)
   return <>{children}</>
 }
