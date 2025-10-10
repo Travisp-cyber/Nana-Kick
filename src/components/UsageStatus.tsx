@@ -68,7 +68,7 @@ export function UsageStatus({ memberId: propMemberId }: { memberId?: string }) {
   // Expose refresh function globally
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      (window as any).refreshUsageStatus = () => setRefreshKey(k => k + 1);
+      (window as Window & { refreshUsageStatus?: () => void }).refreshUsageStatus = () => setRefreshKey(k => k + 1);
     }
   }, [])
 

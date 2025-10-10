@@ -13,6 +13,7 @@ export const PLAN_PRICES: Record<PlanTier, number> = {
   creator: 29,
   brand: 69,
   pro: 99,
+  admin: 0,
 }
 
 // Overage pricing in cents per generation beyond the included pool
@@ -21,6 +22,7 @@ export const PLAN_OVERAGE_CENTS: Record<PlanTier, number> = {
   creator: 8,   // $0.08/gen
   brand: 6,     // $0.06/gen
   pro: 5,       // $0.05/gen
+  admin: 0,     // $0.00/gen (unlimited)
 }
 
 export function normalizeTier(input: string | undefined | null): PlanTier | null {

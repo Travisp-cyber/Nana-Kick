@@ -300,8 +300,9 @@ const [hoveredImage, setHoveredImage] = useState<string | null>(null);
           debug('Image edited and updated');
           
           // Refresh usage status
-          if (typeof window !== 'undefined' && (window as any).refreshUsageStatus) {
-            (window as any).refreshUsageStatus();
+          if (typeof window !== 'undefined') {
+            const windowWithRefresh = window as Window & { refreshUsageStatus?: () => void };
+            windowWithRefresh.refreshUsageStatus?.();
           }
         } else {
           // It's a JSON response (error or info)
