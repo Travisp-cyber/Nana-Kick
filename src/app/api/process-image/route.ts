@@ -96,13 +96,13 @@ export async function POST(request: NextRequest) {
               accessPassId: passId!,
             });
             
-            if (accessCheck.access) {
+            if (accessCheck.hasAccess) {
               hasAccess = true;
               console.log('✅ User has access via pass:', passId);
               break;
             }
           } catch (err) {
-            console.log('⚠️ Error checking access pass:', passId, err);
+            console.log('⚠️ Error checking access pass:', passId);
           }
         }
 

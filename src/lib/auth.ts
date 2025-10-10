@@ -371,11 +371,11 @@ async function checkUserAccessPass(userId: string): Promise<boolean> {
           accessPassId: passId!,
         });
         
-        if (accessCheck.access) {
+        if (accessCheck.hasAccess) {
           console.log('✅ User has access pass:', passId);
           return true;
         }
-      } catch (err) {
+      } catch {
         console.log('⚠️ Error checking access pass:', passId);
       }
     }
