@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase/admin'
+import { prisma } from '@/lib/prisma'
 import { fetchWhopMembership, getRenewalDate, verifyWhopSignature } from '@/lib/whop-integration'
 import { getPoolLimit, normalizeTier } from '@/lib/subscription/plans'
 
@@ -72,22 +72,30 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true, skipped: true })
       }
 
-      // Upsert member record (create if doesn't exist, update if exists)
-      const { error: upsertErr } = await supabaseAdmin
-        .from('members')
-        .upsert({
-          email: email,
-          plan: resolvedTier || 'starter',
-          pool_limit: poolLimit ?? getPoolLimit('starter'),
-          renewal_date: renewalDate,
-        }, {
-          onConflict: 'email',
-          ignoreDuplicates: false,
+      // Upsert user record (create if doesn't exist, update if exists)
+      try {
+        const nextMonth = new Date()
+        nextMonth.setMonth(nextMonth.getMonth() + 1)
+        
+        await prisma.user.upsert({
+          where: { email },
+          update: {
+            currentTier: resolvedTier || 'starter',
+            generationsLimit: poolLimit ?? getPoolLimit('starter'),
+            usageResetDate: renewalDate ? new Date(renewalDate) : nextMonth,
+          },
+          create: {
+            whopUserId: membershipId || 'unknown',
+            email,
+            currentTier: resolvedTier || 'starter',
+            generationsUsed: 0,
+            generationsLimit: poolLimit ?? getPoolLimit('starter'),
+            usageResetDate: renewalDate ? new Date(renewalDate) : nextMonth,
+          }
         })
-
-      if (upsertErr) {
-        console.error('Supabase upsert error (renew/upgrade)', upsertErr)
-        return NextResponse.json({ error: 'Failed to upsert member' }, { status: 500 })
+      } catch (upsertErr) {
+        console.error('Prisma upsert error (renew/upgrade)', upsertErr)
+        return NextResponse.json({ error: 'Failed to upsert user' }, { status: 500 })
       }
 
       return NextResponse.json({ ok: true })

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { resetUsageForDueMembers } from '@/lib/usage'
+import { prisma } from '@/lib/prisma'
 
 async function handleReset(req: NextRequest) {
   // Optional simple auth for cron
@@ -11,8 +11,27 @@ async function handleReset(req: NextRequest) {
     }
   }
 
-  const result = await resetUsageForDueMembers()
-  return NextResponse.json({ ok: true, ...result })
+  // Reset usage for users whose reset date has passed
+  const now = new Date()
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+  
+  const result = await prisma.user.updateMany({
+    where: {
+      usageResetDate: {
+        lte: now
+      }
+    },
+    data: {
+      generationsUsed: 0,
+      usageResetDate: nextMonth
+    }
+  })
+  
+  return NextResponse.json({ 
+    ok: true, 
+    resetCount: result.count,
+    nextResetDate: nextMonth.toISOString()
+  })
 }
 
 export async function POST(req: NextRequest) {
