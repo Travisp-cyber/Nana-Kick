@@ -65,16 +65,62 @@ export function verifyWhopSignature(req: NextRequest, rawBody: string): boolean 
   const secret = process.env.WHOP_WEBHOOK_SECRET
   if (!secret) return process.env.NODE_ENV !== 'production' // allow in dev
 
-  // Whop usually sends a signature header; we try both common variants.
-  const sig = req.headers.get('whop-signature') || req.headers.get('x-whop-signature')
-  if (!sig) return false
+  // Get signature from headers - try multiple common formats
+  const sig = req.headers.get('whop-signature') || 
+              req.headers.get('x-whop-signature') || 
+              req.headers.get('x-signature') ||
+              req.headers.get('signature')
+              
+  if (!sig) {
+    console.log('No signature header found in webhook request')
+    return false
+  }
 
+  console.log('Webhook signature verification:', {
+    receivedSignature: sig,
+    bodyLength: rawBody.length,
+    secretPresent: !!secret
+  })
+
+  // Parse Stripe-style signature: t=timestamp,v1=signature
+  const sigParts = sig.split(',')
+  let timestamp = ''
+  let signature = ''
+  
+  for (const part of sigParts) {
+    const [key, value] = part.split('=')
+    if (key === 't') timestamp = value
+    if (key === 'v1') signature = value
+  }
+  
+  if (!timestamp || !signature) {
+    console.log('Invalid signature format - missing timestamp or signature')
+    return false
+  }
+  
+  // Create the signing payload (timestamp + body)
+  const payload = timestamp + '.' + rawBody
+  
+  // Create expected signature
   const hmac = crypto.createHmac('sha256', secret)
-  hmac.update(rawBody)
-  const expected = hmac.digest('hex')
-
-  // Simple timing-safe comparison
-  return timingSafeEqual(expected, sig)
+  hmac.update(payload, 'utf8')
+  const expectedSignature = hmac.digest('hex')
+  
+  console.log('Signature verification details:', {
+    timestamp,
+    receivedSignature: signature,
+    expectedSignature,
+    payload: payload.substring(0, 100) + '...', // First 100 chars for debugging
+  })
+  
+  // Compare signatures
+  if (timingSafeEqual(expectedSignature, signature)) {
+    console.log('Webhook signature verified successfully')
+    return true
+  }
+  
+  console.log('Webhook signature verification failed')
+  return false
 }
 
 function timingSafeEqual(a: string, b: string): boolean {

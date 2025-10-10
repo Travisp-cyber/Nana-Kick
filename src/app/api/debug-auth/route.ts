@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireMemberOrAdmin, getWhopSession } from '@/lib/auth';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     // Get raw session info
     const session = await getWhopSession();

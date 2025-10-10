@@ -11,7 +11,11 @@ export async function POST(req: NextRequest) {
 
   // Verify signature in production
   const signatureOk = verifyWhopSignature(req, rawBody);
+  console.log('Webhook signature check:', { signatureOk, nodeEnv: process.env.NODE_ENV });
+  
+  // Enforce signature verification in production
   if (!signatureOk && process.env.NODE_ENV === "production") {
+    console.error('WEBHOOK SIGNATURE FAILED - rejecting request');
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 

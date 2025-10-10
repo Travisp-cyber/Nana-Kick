@@ -50,3 +50,4 @@ apps/mobile/.expo-shared
 apps/mobile/ios
 apps/mobile/android
 apps/mobile/dist
+.env*.local

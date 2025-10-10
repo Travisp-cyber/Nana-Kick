@@ -14,6 +14,12 @@ export function UsageStatus({ memberId: propMemberId }: { memberId?: string }) {
   } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [authStatus, setAuthStatus] = useState<{
+    allowed: boolean
+    reason: string
+    userId?: string
+    isAdmin?: boolean
+  } | null>(null)
 
   const memberId = useMemo(() => {
     return (
@@ -23,6 +29,29 @@ export function UsageStatus({ memberId: propMemberId }: { memberId?: string }) {
       ''
     )
   }, [propMemberId, search])
+
+  // Check authentication status
+  useEffect(() => {
+    let cancelled = false
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/whoami', { cache: 'no-store' })
+        const json = await res.json()
+        if (!cancelled) {
+          setAuthStatus({
+            allowed: Boolean(json?.allowed),
+            reason: json?.reason || 'unknown',
+            userId: json?.session?.userId,
+            isAdmin: json?.reason === 'admin'
+          })
+        }
+      } catch {
+        if (!cancelled) setAuthStatus({ allowed: false, reason: 'no_session' })
+      }
+    }
+    checkAuth()
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -46,15 +75,34 @@ export function UsageStatus({ memberId: propMemberId }: { memberId?: string }) {
     return () => { cancelled = true }
   }, [memberId])
 
-  // Friendly empty state when no member selected
+  // Show user authentication status instead of "Sign in"
   if (!memberId) {
+    let statusText = 'Sign in'
+    let statusColor = 'text-gray-500'
+    
+    if (authStatus?.allowed) {
+      if (authStatus.isAdmin) {
+        statusText = 'Admin'
+        statusColor = 'text-purple-600 font-semibold'
+      } else if (authStatus.reason === 'whop_token') {
+        statusText = 'Member'
+        statusColor = 'text-green-600 font-medium'
+      } else if (authStatus.reason === 'member') {
+        statusText = 'Subscriber'
+        statusColor = 'text-blue-600 font-medium'
+      } else {
+        statusText = 'Verified'
+        statusColor = 'text-green-600 font-medium'
+      }
+    }
+    
     return (
       <div className="flex items-center gap-3 bg-white/70 backdrop-blur px-4 py-2 rounded-xl shadow border border-black/5 text-sm text-gray-700">
         <span className="font-medium">Usage</span>
         <div className="w-40 h-1.5 bg-gray-200 rounded-full overflow-hidden">
           <div className="h-full bg-gray-300" style={{ width: '0%' }} />
         </div>
-        <span className="text-gray-500">Sign in</span>
+        <span className={statusColor}>{statusText}</span>
       </div>
     )
   }
@@ -85,11 +133,14 @@ export function UsageStatus({ memberId: propMemberId }: { memberId?: string }) {
   const plan = data?.plan || 'starter'
   const overage = data?.overage_cents ?? 0
   const pct = Math.min(Math.round((used / total) * 100), 100)
+  
+  // Display plan with admin indicator
+  const planDisplay = authStatus?.isAdmin ? `${plan} (admin)` : `${plan} plan`
 
   return (
     <div className="flex items-center gap-4 bg-white/80 backdrop-blur px-4 py-2 rounded-xl shadow border border-black/5">
       <div className="flex flex-col">
-        <div className="text-xs uppercase tracking-wide text-gray-500">{plan} plan</div>
+        <div className="text-xs uppercase tracking-wide text-gray-500">{planDisplay}</div>
         <div className="flex items-center gap-3">
           <div className="w-44 h-2 bg-gray-200 rounded-full overflow-hidden">
             <div

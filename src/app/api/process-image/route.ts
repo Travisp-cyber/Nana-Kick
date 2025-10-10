@@ -25,23 +25,36 @@ export async function POST(request: NextRequest) {
     if (!isProd) console.log(...args);
   };
 
+  // Check if we're in development mode - allow all requests
+  const isDev = process.env.NODE_ENV !== 'production';
+  
   // Members-only gate (admins bypass)
   const gate = await requireMemberOrAdmin();
   
-  // Debug logging for gate check
-  console.log('Gate check:', {
+  // Enhanced debug logging for gate check
+  console.log('🔍 Auth Gate Check:', {
+    environment: process.env.NODE_ENV,
     allowed: gate.allowed,
     reason: gate.reason,
     userId: gate.session?.userId,
+    membershipId: gate.session?.membershipId,
     agentId: process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID,
     adminIds: process.env.ADMIN_WHOP_USER_IDS,
+    hasSession: !!gate.session,
+    sessionValid: gate.session?.isValid,
   });
   
-  if (!gate.allowed) {
+  // In development, be more permissive for testing
+  if (!gate.allowed && !isDev) {
+    console.log('❌ Access denied:', gate.reason);
     return NextResponse.json(
-      { error: 'Members only' },
+      { error: 'Members only', reason: gate.reason, debug: isDev ? gate : undefined },
       { status: 403, headers: corsHeaders }
     );
+  }
+  
+  if (isDev && !gate.allowed) {
+    console.log('⚠️  Development mode: Allowing access despite failed auth check');
   }
 
   dlog('=== API Route Called ===');
