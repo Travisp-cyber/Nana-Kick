@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { supabaseAdmin } from "@/lib/supabase/admin";
 import { verifyWhopSignature, fetchWhopMembership, getRenewalDate } from "@/lib/whop-integration";
 import { normalizeTier, getPoolLimit, type PlanTier } from "@/lib/subscription/plans";
 
@@ -110,24 +109,30 @@ export async function POST(req: NextRequest) {
         );
         const poolLimit = resolvedTier ? getPoolLimit(resolvedTier) : undefined;
 
-        // Upsert member: create if doesn't exist, update plan/limits if exists
-        const { error: upsertErr } = await supabaseAdmin
-          .from('members')
-          .upsert({
-            email: email,
-            plan: resolvedTier || 'starter',
-            pool_limit: poolLimit ?? getPoolLimit('starter'),
-            renewal_date: renewalDate,
-            current_usage: 0,
-          }, {
-            onConflict: 'email',
-            ignoreDuplicates: false,
+        // Upsert user in Prisma: create if doesn't exist, update tier/limits if exists
+        try {
+          const nextMonth = new Date();
+          nextMonth.setMonth(nextMonth.getMonth() + 1);
+          
+          await prisma.user.upsert({
+            where: { email: email },
+            update: {
+              currentTier: resolvedTier || 'starter',
+              generationsLimit: poolLimit ?? getPoolLimit('starter'),
+              usageResetDate: renewalDate ? new Date(renewalDate) : nextMonth,
+            },
+            create: {
+              whopUserId: membershipId, // Use membershipId as fallback
+              email: email,
+              currentTier: resolvedTier || 'starter',
+              generationsUsed: 0,
+              generationsLimit: poolLimit ?? getPoolLimit('starter'),
+              usageResetDate: renewalDate ? new Date(renewalDate) : nextMonth,
+            }
           });
-
-        if (upsertErr) {
-          console.error('[Whop Webhook] Member upsert error:', upsertErr);
-        } else {
-          console.log('[Whop Webhook] Member upserted for membership', membershipId, email);
+          console.log('[Whop Webhook] User upserted for membership', membershipId, email);
+        } catch (upsertErr) {
+          console.error('[Whop Webhook] User upsert error:', upsertErr);
         }
       }
     } catch (memberErr) {

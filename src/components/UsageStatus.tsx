@@ -30,20 +30,31 @@ export function UsageStatus({ memberId: propMemberId }: { memberId?: string }) {
     )
   }, [propMemberId, search])
 
-  // Check authentication status
+  // Check authentication status and usage
   useEffect(() => {
     let cancelled = false
     async function checkAuth() {
       try {
-        const res = await fetch('/api/whoami', { cache: 'no-store' })
+        const res = await fetch('/api/usage/current', { cache: 'no-store' })
         const json = await res.json()
         if (!cancelled) {
           setAuthStatus({
-            allowed: Boolean(json?.allowed),
-            reason: json?.reason || 'unknown',
-            userId: json?.session?.userId,
-            isAdmin: json?.reason === 'admin'
+            allowed: Boolean(json?.hasAccess),
+            reason: json?.isAdmin ? 'admin' : (json?.tier || 'member'),
+            userId: json?.userId,
+            isAdmin: Boolean(json?.isAdmin)
           })
+          
+          // If we have usage data, set it
+          if (json?.usage) {
+            setData({
+              plan: json.tier || 'unknown',
+              pool_limit: json.usage.limit || 0,
+              current_usage: json.usage.used || 0,
+              remaining: json.usage.remaining || 0,
+              overage_cents: 0
+            })
+          }
         }
       } catch {
         if (!cancelled) setAuthStatus({ allowed: false, reason: 'no_session' })
@@ -53,10 +64,14 @@ export function UsageStatus({ memberId: propMemberId }: { memberId?: string }) {
     return () => { cancelled = true }
   }, [])
 
+  // Keep the old endpoint for backward compatibility if memberId is provided
   useEffect(() => {
     let cancelled = false
     async function load() {
       if (!memberId) return
+      // Skip if we already have data from /api/usage/current
+      if (data) return
+      
       setLoading(true)
       setError(null)
       try {
@@ -73,10 +88,10 @@ export function UsageStatus({ memberId: propMemberId }: { memberId?: string }) {
     }
     load()
     return () => { cancelled = true }
-  }, [memberId])
+  }, [memberId, data])
 
-  // Show user authentication status instead of "Sign in"
-  if (!memberId) {
+  // Show user authentication status
+  if (!data && !loading) {
     let statusText = 'Sign in'
     let statusColor = 'text-gray-500'
     
@@ -84,14 +99,8 @@ export function UsageStatus({ memberId: propMemberId }: { memberId?: string }) {
       if (authStatus.isAdmin) {
         statusText = 'Admin'
         statusColor = 'text-purple-600 font-semibold'
-      } else if (authStatus.reason === 'whop_token') {
-        statusText = 'Member'
-        statusColor = 'text-green-600 font-medium'
-      } else if (authStatus.reason === 'member') {
-        statusText = 'Subscriber'
-        statusColor = 'text-blue-600 font-medium'
       } else {
-        statusText = 'Verified'
+        statusText = 'Member'
         statusColor = 'text-green-600 font-medium'
       }
     }

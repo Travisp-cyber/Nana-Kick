@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { whopSdk } from '@/lib/whop-sdk';
+import { getUserTierAndUsage, incrementUsage } from '@/lib/whop-usage';
 
 // Configure the API route
 export const runtime = 'nodejs';
@@ -54,35 +55,72 @@ export async function POST(request: NextRequest) {
   const isWhopRequest = origin?.includes('whop.com') || referer.includes('whop.com');
   
   // Check authentication and access rights
+  let whopUserId: string | null = null;
+  
   if (!isDev) {
     // Only allow requests from Whop platform
     if (!isWhopRequest) {
-      console.log('❌ Request not from Whop platform - authentication required');
+      console.log('❌ Request not from Whop platform');
       return NextResponse.json(
-        { 
-          error: 'Access denied', 
-          message: 'This app can only be accessed through the Whop platform.',
-        },
+        { error: 'Access denied', message: 'This app can only be accessed through the Whop platform.' },
         { status: 403, headers: corsHeaders }
       );
     }
 
-    // If request is from Whop, trust that Whop has already authenticated the user
-    // Whop only shows apps to users who have purchased access
-    console.log('✅ Request from Whop platform - access granted');
-    console.log('   Origin:', origin);
-    console.log('   Referer:', referer);
-    
-    // Optional: Try to identify the user for logging purposes (but don't fail if we can't)
+    // Verify user token and check usage
     try {
-      const { userId } = await whopSdk.verifyUserToken(request.headers);
+      const result = await whopSdk.verifyUserToken(request.headers);
+      whopUserId = result.userId;
+      
+      // Check if admin
       const adminList = (process.env.ADMIN_WHOP_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
       const agent = process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID;
-      const isAdmin = adminList.includes(userId) || (agent && userId === agent);
+      const isAdmin = adminList.includes(whopUserId) || (agent && whopUserId === agent);
       
-      console.log(isAdmin ? '👑 Admin user:' : '👤 User:', userId);
+      if (isAdmin) {
+        console.log('👑 Admin user - unlimited access:', whopUserId);
+      } else {
+        // Check tier and usage
+        const { hasAccess, tier, usage } = await getUserTierAndUsage(whopUserId);
+        
+        if (!hasAccess) {
+          console.log('❌ User has no access pass:', whopUserId);
+          return NextResponse.json(
+            { 
+              error: 'No access',
+              message: 'You need to purchase an access pass to use this feature.',
+              isPremiumFeature: true,
+              redirectTo: '/plans'
+            },
+            { status: 403, headers: corsHeaders }
+          );
+        }
+        
+        if (!usage || usage.used >= usage.limit) {
+          console.log('❌ User exceeded limit:', whopUserId, usage);
+          return NextResponse.json(
+            { 
+              error: 'Limit reached',
+              message: `You've used all ${usage?.limit || 0} generations for this month. Upgrade or wait for reset.`,
+              usage: {
+                used: usage?.used || 0,
+                limit: usage?.limit || 0,
+                resetDate: usage?.resetDate?.toISOString()
+              },
+              redirectTo: '/plans'
+            },
+            { status: 429, headers: corsHeaders }
+          );
+        }
+        
+        console.log(`✅ User verified - ${tier} tier (${usage.remaining} remaining):`, whopUserId);
+      }
     } catch (e) {
-      console.log('ℹ️  Could not identify specific user, but request is from Whop - allowing access');
+      console.log('❌ Authentication failed:', e);
+      return NextResponse.json(
+        { error: 'Authentication failed', message: 'Could not verify your access. Please try again.' },
+        { status: 401, headers: corsHeaders }
+      );
     }
   } else {
     console.log('⚠️  Development mode: Allowing all access');
@@ -171,6 +209,11 @@ export async function POST(request: NextRequest) {
       };
       const editedImageBuffer = Buffer.from(editedImageData.data, 'base64');
       const mimeType = editedImageData.mimeType || image.type;
+
+      // Increment usage after successful image edit
+      if (!isDev && whopUserId) {
+        await incrementUsage(whopUserId);
+      }
 
       dlog('Image edited successfully!');
       return new NextResponse(editedImageBuffer, {

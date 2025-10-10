@@ -18,6 +18,13 @@ model User {
   subscriptionStatus String?        // active | canceled | expired | trialing | past_due
   planId             String?
   currentPeriodEnd   DateTime?
+  
+  // Usage tracking fields
+  currentTier        String?        // "starter" | "creator" | "brand" | "pro"
+  generationsUsed    Int            @default(0)
+  generationsLimit   Int?           // tier-based limit
+  usageResetDate     DateTime?      // when to reset counter
+  
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
   accessLogs         AccessLog[]

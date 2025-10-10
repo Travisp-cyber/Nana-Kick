@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase/admin'
+import { prisma } from '@/lib/prisma'
 import { fetchWhopMembership, fetchWhopOrder, getRenewalDate, isMembershipActive } from '@/lib/whop-integration'
 import { getPoolLimit, normalizeTier, type PlanTier } from '@/lib/subscription/plans'
 
@@ -72,27 +72,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 })
     }
 
-    // Upsert member row (create if doesn't exist, update if exists)
-    const { data, error: upsertErr } = await supabaseAdmin
-      .from('members')
-      .upsert({
-        email,
-        plan: tier,
-        pool_limit: poolLimit,
-        renewal_date: renewalDate,
-        current_usage: 0,
-      }, {
-        onConflict: 'email',
-        ignoreDuplicates: false,
+    // Upsert user in Prisma (create if doesn't exist, update if exists)
+    let user
+    try {
+      const nextMonth = new Date()
+      nextMonth.setMonth(nextMonth.getMonth() + 1)
+      
+      user = await prisma.user.upsert({
+        where: { email },
+        update: {
+          currentTier: tier,
+          generationsLimit: poolLimit,
+          usageResetDate: renewalDate ? new Date(renewalDate) : nextMonth,
+        },
+        create: {
+          whopUserId: membershipId,
+          email,
+          currentTier: tier,
+          generationsUsed: 0,
+          generationsLimit: poolLimit,
+          usageResetDate: renewalDate ? new Date(renewalDate) : nextMonth,
+        }
       })
-      .select('id')
-
-    if (upsertErr) {
-      console.error('Supabase upsert error (members)', upsertErr)
-      return NextResponse.json({ error: 'Failed to create/update member', details: upsertErr.message }, { status: 500 })
+    } catch (upsertErr) {
+      console.error('Prisma upsert error (users)', upsertErr)
+      return NextResponse.json({ error: 'Failed to create/update user', details: String(upsertErr) }, { status: 500 })
     }
 
-    const insertedId = data && data.length > 0 ? (data[0] as any).id : null
+    const insertedId = user?.id || null
 
     return NextResponse.json({
       ok: true,
