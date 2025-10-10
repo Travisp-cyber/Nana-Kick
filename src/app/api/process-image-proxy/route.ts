@@ -47,6 +47,14 @@ export async function POST(request: NextRequest) {
       adminIds: process.env.ADMIN_WHOP_USER_IDS,
       hasSession: !!gate.session,
       sessionValid: gate.session?.isValid,
+      requestHeaders: {
+        'x-whop-user-id': request.headers.get('x-whop-user-id'),
+        'x-whop-user-token': request.headers.get('x-whop-user-token'),
+        'x-whop-authorization': request.headers.get('x-whop-authorization'),
+        'authorization': request.headers.get('authorization'),
+        'origin': request.headers.get('origin'),
+        'referer': request.headers.get('referer'),
+      }
     })
     
     // Only allow if user is authenticated (admin or member)
@@ -66,17 +74,17 @@ export async function POST(request: NextRequest) {
     
     console.log('🔄 Proxying request to:', processImageUrl)
     
-    const response = await fetch(processImageUrl, {
+    // Create a new request with all the original headers
+    const newRequest = new Request(processImageUrl, {
       method: 'POST',
       body: formData,
       headers: {
-        // Forward the original headers that contain Whop authentication
-        'x-whop-user-id': request.headers.get('x-whop-user-id') || '',
-        'x-whop-user-token': request.headers.get('x-whop-user-token') || '',
-        'x-whop-authorization': request.headers.get('x-whop-authorization') || '',
-        'authorization': request.headers.get('authorization') || '',
+        // Copy all headers from the original request
+        ...Object.fromEntries(request.headers.entries()),
       }
     })
+    
+    const response = await fetch(newRequest)
     
     if (!response.ok) {
       const errorText = await response.text()
