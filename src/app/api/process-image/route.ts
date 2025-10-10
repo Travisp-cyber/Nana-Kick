@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { requireMemberOrAdmin, getWhopSession } from '@/lib/auth';
 import { whopSdk } from '@/lib/whop-sdk';
 
 // Configure the API route
@@ -77,13 +76,16 @@ export async function POST(request: NextRequest) {
       } else {
         // For non-admin users, check if they have a valid membership/access pass
         try {
-          const { hasAccess } = await whopSdk.hasAccess({
-            to: process.env.NEXT_PUBLIC_WHOP_COMPANY_ID || '',
-            headers: request.headers,
+          // Check if user has access to the company's products
+          const memberships = await whopSdk.memberships.listMemberships({
+            userId,
+            valid: true,
           });
           
-          if (!hasAccess) {
-            console.log('❌ User does not have valid access pass');
+          const hasValidMembership = memberships && memberships.data && memberships.data.length > 0;
+          
+          if (!hasValidMembership) {
+            console.log('❌ User does not have valid membership/access pass');
             return NextResponse.json(
               { 
                 error: 'Access pass required', 
@@ -94,9 +96,9 @@ export async function POST(request: NextRequest) {
             );
           }
           
-          console.log('✅ User has valid access pass');
+          console.log('✅ User has valid membership:', memberships.data[0].id);
         } catch (accessError) {
-          console.error('Error checking access:', accessError);
+          console.error('Error checking memberships:', accessError);
           // If we can't verify access and it's not from Whop, deny
           if (!isWhopRequest) {
             return NextResponse.json(
@@ -104,6 +106,8 @@ export async function POST(request: NextRequest) {
               { status: 403, headers: corsHeaders }
             );
           }
+          // If it's from Whop and we can't check, allow it (Whop manages access)
+          console.log('⚠️ Could not verify membership but request is from Whop - allowing');
         }
       }
     } catch (authError) {
