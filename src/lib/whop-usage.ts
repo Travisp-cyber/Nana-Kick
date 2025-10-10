@@ -44,11 +44,21 @@ export async function getUserTierAndUsage(whopUserId: string) {
     }
   }
 
-  if (!userTier) {
+  // Check if user is admin
+  const adminList = (process.env.ADMIN_WHOP_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+  const agent = process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID;
+  const isAdmin = adminList.includes(whopUserId) || (agent && whopUserId === agent);
+  
+  if (!userTier && !isAdmin) {
     return { hasAccess: false, tier: null, usage: null };
   }
+  
+  // For admin users, use a high but trackable limit
+  if (isAdmin) {
+    userTier = 'admin';
+  }
 
-  const limit = PLAN_POOL_LIMITS[userTier];
+  const limit = PLAN_POOL_LIMITS[userTier as PlanTier];
   const now = new Date();
   const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 

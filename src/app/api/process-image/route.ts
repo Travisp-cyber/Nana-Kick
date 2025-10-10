@@ -79,74 +79,53 @@ export async function POST(request: NextRequest) {
         whopUserId = result.userId;
         console.log('✅ Verified user from headers:', whopUserId);
       } else {
-        // Headers not available (common in iframe), trust the Whop platform
-        // This is safe because we already verified the request is from Whop
-        console.log('⚠️  No Whop headers found, trusting platform request');
-        
-        // For now, allow admin access based on request context
-        // In a real implementation, you might want to use Whop's iframe SDK
-        const adminList = (process.env.ADMIN_WHOP_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
-        
-        // Since we can't verify the specific user, we'll implement a different approach
-        // For admin users, we'll use a special bypass
-        if (adminList.length > 0) {
-          // Create a temporary admin user ID for this session
-          whopUserId = 'admin_bypass_' + Date.now();
-          console.log('👑 Admin bypass mode activated');
-        } else {
-          throw new Error('No user verification possible');
-        }
+        // Headers not available - cannot verify user
+        console.log('❌ No Whop headers found, cannot verify user');
+        throw new Error('User authentication required');
       }
       
       // Check if admin or handle usage limits
-      if (xWhopUserId) {
-        const adminList = (process.env.ADMIN_WHOP_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
-        const agent = process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID;
-        const isAdmin = adminList.includes(xWhopUserId) || (agent && xWhopUserId === agent);
-        
-        if (isAdmin) {
-          console.log('👑 Admin user - unlimited access:', xWhopUserId);
-        } else {
-          // Check tier and usage for non-admin users
-          const { hasAccess, tier, usage } = await getUserTierAndUsage(xWhopUserId);
-          
-          if (!hasAccess) {
-            console.log('❌ User has no access pass:', xWhopUserId);
-            return NextResponse.json(
-              { 
-                error: 'No access',
-                message: 'You need to purchase an access pass to use this feature.',
-                isPremiumFeature: true,
-                redirectTo: '/plans'
-              },
-              { status: 403, headers: corsHeaders }
-            );
-          }
-          
-          if (!usage || usage.used >= usage.limit) {
-            console.log('❌ User exceeded limit:', xWhopUserId, usage);
-            return NextResponse.json(
-              { 
-                error: 'Limit reached',
-                message: `You've used all ${usage?.limit || 0} generations for this month. Upgrade or wait for reset.`,
-                usage: {
-                  used: usage?.used || 0,
-                  limit: usage?.limit || 0,
-                  resetDate: usage?.resetDate?.toISOString()
-                },
-                redirectTo: '/plans'
-              },
-              { status: 429, headers: corsHeaders }
-            );
-          }
-          
-          console.log(`✅ User verified - ${tier} tier (${usage.remaining} remaining):`, xWhopUserId);
-        }
+      const adminList = (process.env.ADMIN_WHOP_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+      const agent = process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID;
+      const isAdmin = adminList.includes(whopUserId) || (agent && whopUserId === agent);
+      
+      if (isAdmin) {
+        console.log('👑 Admin user - unlimited access:', whopUserId);
       } else {
-        // No Whop headers available - this is the admin bypass mode
-        // For now, we'll allow unlimited access for admin bypass
-        // In a real implementation, you might want to use Whop's iframe SDK to get user info
-        console.log('👑 Admin bypass mode - unlimited access (no headers available)');
+        // Check tier and usage for non-admin users
+        const { hasAccess, tier, usage } = await getUserTierAndUsage(whopUserId);
+        
+        if (!hasAccess) {
+          console.log('❌ User has no access pass:', whopUserId);
+          return NextResponse.json(
+            { 
+              error: 'No access',
+              message: 'You need to purchase an access pass to use this feature.',
+              isPremiumFeature: true,
+              redirectTo: '/plans'
+            },
+            { status: 403, headers: corsHeaders }
+          );
+        }
+        
+        if (!usage || usage.used >= usage.limit) {
+          console.log('❌ User exceeded limit:', whopUserId, usage);
+          return NextResponse.json(
+            { 
+              error: 'Limit reached',
+              message: `You've used all ${usage?.limit || 0} generations for this month. Upgrade or wait for reset.`,
+              usage: {
+                used: usage?.used || 0,
+                limit: usage?.limit || 0,
+                resetDate: usage?.resetDate?.toISOString()
+              },
+              redirectTo: '/plans'
+            },
+            { status: 429, headers: corsHeaders }
+          );
+        }
+        
+        console.log(`✅ User verified - ${tier} tier (${usage.remaining} remaining):`, whopUserId);
       }
     } catch (e) {
       console.log('❌ Authentication failed:', e);
@@ -282,9 +261,10 @@ export async function POST(request: NextRequest) {
       const editedImageBuffer = Buffer.from(editedImageData.data, 'base64');
       const mimeType = editedImageData.mimeType || image.type;
 
-      // Increment usage after successful image edit (skip for admin bypass)
-      if (!isDev && whopUserId && !whopUserId.startsWith('admin_bypass_')) {
+      // Increment usage after successful image edit
+      if (!isDev && whopUserId) {
         await incrementUsage(whopUserId);
+        console.log('📊 Usage incremented for user:', whopUserId);
       }
 
       dlog('Image edited successfully!');

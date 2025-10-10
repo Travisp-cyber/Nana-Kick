@@ -298,6 +298,11 @@ const [hoveredImage, setHoveredImage] = useState<string | null>(null);
           
           setInstructions(''); // Clear instructions for next edit
           debug('Image edited and updated');
+          
+          // Refresh usage status
+          if (typeof window !== 'undefined' && (window as any).refreshUsageStatus) {
+            (window as any).refreshUsageStatus();
+          }
         } else {
           // It's a JSON response (error or info)
           const result = await response.json();

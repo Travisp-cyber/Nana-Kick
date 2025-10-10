@@ -1,10 +1,11 @@
-export type PlanTier = 'starter' | 'creator' | 'brand' | 'pro'
+export type PlanTier = 'starter' | 'creator' | 'brand' | 'pro' | 'admin'
 
 export const PLAN_POOL_LIMITS: Record<PlanTier, number> = {
   starter: 50,
   creator: 500,
   brand: 1000,
   pro: 1500,
+  admin: 10000,
 }
 
 export const PLAN_PRICES: Record<PlanTier, number> = {

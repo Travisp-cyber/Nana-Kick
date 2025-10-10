@@ -20,6 +20,7 @@ export function UsageStatus({ memberId: propMemberId }: { memberId?: string }) {
     userId?: string
     isAdmin?: boolean
   } | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const memberId = useMemo(() => {
     return (
@@ -62,6 +63,13 @@ export function UsageStatus({ memberId: propMemberId }: { memberId?: string }) {
     }
     checkAuth()
     return () => { cancelled = true }
+  }, [refreshKey])
+
+  // Expose refresh function globally
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).refreshUsageStatus = () => setRefreshKey(k => k + 1);
+    }
   }, [])
 
   // Keep the old endpoint for backward compatibility if memberId is provided

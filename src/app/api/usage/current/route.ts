@@ -45,15 +45,15 @@ export async function GET(request: NextRequest) {
         const isAdmin = adminList.includes(whopUserId) || (agent && whopUserId === agent);
         
         if (isAdmin) {
+          // Fetch actual usage from database for admin
+          const adminResult = await getUserTierAndUsage(whopUserId);
+          const adminLimit = 10000;
+          
           return NextResponse.json({
             hasAccess: true,
             isAdmin: true,
             tier: 'admin',
-            usage: {
-              used: 0,
-              limit: 999999,
-              remaining: 999999,
-            }
+            usage: adminResult.usage || { used: 0, limit: adminLimit, remaining: adminLimit }
           });
         }
         
@@ -73,38 +73,23 @@ export async function GET(request: NextRequest) {
           usage: result.usage,
         });
       } else {
-        // No user ID available - admin bypass mode
-        const adminList = (process.env.ADMIN_WHOP_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
-        
-        if (adminList.length > 0) {
-          // Assume admin access when no headers are available
-          return NextResponse.json({
-            hasAccess: true,
-            isAdmin: true,
-            tier: 'admin',
-            usage: {
-              used: 0,
-              limit: 999999,
-              remaining: 999999,
-            }
-          });
-        } else {
-          return NextResponse.json(
-            { hasAccess: false, message: 'No user verification possible' },
-            { status: 200 }
-          );
-        }
+        // No user ID available - cannot verify user
+        return NextResponse.json(
+          { hasAccess: false, message: 'User authentication required' },
+          { status: 401 }
+        );
       }
     } else {
-      // Development mode - return admin access
+      // Development mode - return admin access with trackable limit
+      const adminLimit = 10000;
       return NextResponse.json({
         hasAccess: true,
         isAdmin: true,
         tier: 'admin',
         usage: {
           used: 0,
-          limit: 999999,
-          remaining: 999999,
+          limit: adminLimit,
+          remaining: adminLimit,
         }
       });
     }
