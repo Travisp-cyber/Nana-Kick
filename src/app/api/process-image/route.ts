@@ -242,7 +242,7 @@ export async function POST(request: NextRequest) {
         new Promise((_, reject) => 
           setTimeout(() => reject(new Error('Image processing timeout after 50 seconds')), 50000)
         )
-      ]) as any;
+      ]) as Awaited<ReturnType<typeof model.generateContent>>;
     } catch (error) {
       console.error('❌ Image processing failed:', error);
       return NextResponse.json(
