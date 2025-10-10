@@ -22,10 +22,10 @@ function getCorsHeaders(origin: string | null) {
   
   return {
     'Access-Control-Allow-Origin': isAllowed ? (origin || 'https://whop.com') : 'https://whop.com',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
     'Access-Control-Allow-Credentials': 'true',
-  };
+};
 }
 
 // --- OPTIONS handler for preflight ---
@@ -55,28 +55,8 @@ export async function POST(request: NextRequest) {
   
   // Check authentication and access rights
   if (!isDev) {
-    // For requests from Whop platform, trust Whop's access control
-    // Whop only shows the app to users who have purchased access
-    if (isWhopRequest) {
-      console.log('✅ Request from Whop platform - access managed by Whop');
-      
-      // Still log if it's an admin for monitoring
-      try {
-        const { userId } = await whopSdk.verifyUserToken(request.headers);
-        const adminList = (process.env.ADMIN_WHOP_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
-        const agent = process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID;
-        const isAdmin = adminList.includes(userId) || (agent && userId === agent);
-        
-        if (isAdmin) {
-          console.log('👑 Admin user detected:', userId);
-        } else {
-          console.log('👤 Regular user:', userId);
-        }
-      } catch (e) {
-        console.log('ℹ️ Could not identify user, but request is from Whop platform');
-      }
-    } else {
-      // For non-Whop requests, require authentication
+    // Only allow requests from Whop platform
+    if (!isWhopRequest) {
       console.log('❌ Request not from Whop platform - authentication required');
       return NextResponse.json(
         { 
@@ -86,8 +66,73 @@ export async function POST(request: NextRequest) {
         { status: 403, headers: corsHeaders }
       );
     }
+
+    // Verify user has access to premium features (access pass check)
+    try {
+      const { userId } = await whopSdk.verifyUserToken(request.headers);
+      const adminList = (process.env.ADMIN_WHOP_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+      const agent = process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID;
+      const isAdmin = adminList.includes(userId) || (agent && userId === agent);
+      
+      if (isAdmin) {
+        console.log('👑 Admin user detected - granting access:', userId);
+      } else {
+        // Check if user has any of the access passes
+        const accessPassIds = [
+          process.env.NEXT_PUBLIC_ACCESS_PASS_STARTER_ID,
+          process.env.NEXT_PUBLIC_ACCESS_PASS_CREATOR_ID,
+          process.env.NEXT_PUBLIC_ACCESS_PASS_PRO_ID,
+          process.env.NEXT_PUBLIC_ACCESS_PASS_BRAND_ID,
+          process.env.NEXT_PUBLIC_PREMIUM_ACCESS_PASS_ID,
+        ].filter(Boolean);
+
+        let hasAccess = false;
+        
+        // Check each access pass
+        for (const passId of accessPassIds) {
+          try {
+            const accessCheck = await whopSdk.access.checkIfUserHasAccessToAccessPass({
+              userId,
+              accessPassId: passId!,
+            });
+            
+            if (accessCheck.access) {
+              hasAccess = true;
+              console.log('✅ User has access via pass:', passId);
+              break;
+            }
+          } catch (err) {
+            console.log('⚠️ Error checking access pass:', passId, err);
+          }
+        }
+
+        if (!hasAccess) {
+          console.log('❌ User does not have required access pass:', userId);
+    return NextResponse.json(
+            { 
+              error: 'Premium feature', 
+              message: 'This feature requires a premium subscription.',
+              isPremiumFeature: true,
+              redirectTo: '/plans'
+            },
+      { status: 403, headers: corsHeaders }
+    );
+  }
+  
+        console.log('✅ User verified with access pass:', userId);
+      }
+    } catch (e) {
+      console.log('❌ Authentication failed:', e);
+      return NextResponse.json(
+        { 
+          error: 'Authentication failed', 
+          message: 'Could not verify your access. Please try again.',
+        },
+        { status: 401, headers: corsHeaders }
+      );
+    }
   } else {
-    console.log('⚠️  Development mode: Allowing access');
+    console.log('⚠️  Development mode: Allowing all access');
   }
 
   dlog('=== API Route Called ===');

@@ -143,11 +143,29 @@ Current deployment: [https://nana-kick-3ubr-mc0tdw1v8-travis-parks-projects.verc
 ## 🔒 Environment Variables for Production
 
 In Vercel, add these environment variables:
-- `GOOGLE_AI_API_KEY`
-- `NEXT_PUBLIC_WHOP_APP_ID`
-- `WHOP_API_KEY`
-- `NEXT_PUBLIC_WHOP_AGENT_USER_ID`
-- `NEXT_PUBLIC_WHOP_COMPANY_ID`
+
+### Core Configuration
+- `GOOGLE_AI_API_KEY` - Google AI API key for image processing
+- `NEXT_PUBLIC_WHOP_APP_ID` - Your Whop App ID
+- `WHOP_API_KEY` - Your Whop API key (keep secret!)
+- `NEXT_PUBLIC_WHOP_AGENT_USER_ID` - Your Whop agent user ID
+- `NEXT_PUBLIC_WHOP_COMPANY_ID` - Your Whop company ID
+- `ADMIN_WHOP_USER_IDS` - Comma-separated admin user IDs
+
+### Access Pass Configuration (Required!)
+These IDs gate access to premium features:
+- `NEXT_PUBLIC_ACCESS_PASS_STARTER_ID` - Starter Pack ($9/month)
+- `NEXT_PUBLIC_ACCESS_PASS_CREATOR_ID` - Creator Pack ($29/month)
+- `NEXT_PUBLIC_ACCESS_PASS_PRO_ID` - Pro Pack ($99/month)
+- `NEXT_PUBLIC_ACCESS_PASS_BRAND_ID` - Brand Pack ($69/month)
+
+### Plan IDs (for checkout)
+- `NEXT_PUBLIC_WHOP_PLAN_STARTER_ID`
+- `NEXT_PUBLIC_WHOP_PLAN_CREATOR_ID`
+- `NEXT_PUBLIC_WHOP_PLAN_PRO_ID`
+- `NEXT_PUBLIC_WHOP_PLAN_BRAND_ID`
+
+📖 **See [ENVIRONMENT_VARIABLES_GUIDE.md](./ENVIRONMENT_VARIABLES_GUIDE.md) for detailed setup instructions**
 
 ## 📝 Whop Configuration
 

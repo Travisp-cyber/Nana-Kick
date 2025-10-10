@@ -315,7 +315,7 @@ function isWhopStatusActive(status?: string | null) {
   return s === 'active' || s === 'valid' || s === 'trialing' || s === 'past_due';
 }
 
-// Gate access: allow admins always; otherwise require active subscription
+// Gate access: allow admins always; otherwise require active subscription or access pass
 export async function requireMemberOrAdmin() {
   const session = await getWhopSession();
   const adminList = (process.env.ADMIN_WHOP_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -337,6 +337,12 @@ export async function requireMemberOrAdmin() {
     return { allowed: false, reason: 'no_session', session: null } as const;
   }
 
+  // Check if user has access via access passes
+  const hasAccessPass = await checkUserAccessPass(session.userId);
+  if (hasAccessPass) {
+    return { allowed: true, reason: 'access_pass', session } as const;
+  }
+
   // If the Whop token indicates an active/valid membership (or includes a membership id), allow
   if (isWhopStatusActive(session.status as string | undefined) || !!session.membershipId) {
     return { allowed: true, reason: 'whop_token', session } as const;
@@ -345,4 +351,38 @@ export async function requireMemberOrAdmin() {
   // Fallback to local database subscription check
   const hasSub = await hasActiveSubscription(session.userId);
   return { allowed: hasSub, reason: hasSub ? 'member' : 'no_subscription', session } as const;
+}
+
+// Check if user has any valid access pass
+async function checkUserAccessPass(userId: string): Promise<boolean> {
+  try {
+    const accessPassIds = [
+      process.env.NEXT_PUBLIC_ACCESS_PASS_STARTER_ID,
+      process.env.NEXT_PUBLIC_ACCESS_PASS_CREATOR_ID,
+      process.env.NEXT_PUBLIC_ACCESS_PASS_PRO_ID,
+      process.env.NEXT_PUBLIC_ACCESS_PASS_BRAND_ID,
+      process.env.NEXT_PUBLIC_PREMIUM_ACCESS_PASS_ID,
+    ].filter(Boolean);
+
+    for (const passId of accessPassIds) {
+      try {
+        const accessCheck = await whopSdk.access.checkIfUserHasAccessToAccessPass({
+          userId,
+          accessPassId: passId!,
+        });
+        
+        if (accessCheck.access) {
+          console.log('✅ User has access pass:', passId);
+          return true;
+        }
+      } catch (err) {
+        console.log('⚠️ Error checking access pass:', passId);
+      }
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('❌ Error checking user access passes:', error);
+    return false;
+  }
 }
