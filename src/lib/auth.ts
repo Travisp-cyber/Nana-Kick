@@ -1,7 +1,6 @@
 import { prisma } from './db';
 import { headers } from 'next/headers';
 import { whopSdk } from '@/lib/whop-sdk';
-import { checkEmailMembership } from '@/lib/email-auth';
 
 export interface WhopSession {
   userId: string;

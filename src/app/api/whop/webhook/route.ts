@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { fetchWhopMembership, getRenewalDate, verifyWhopSignature } from '@/lib/whop-integration'
-import { getPoolLimit, normalizeTier, type PlanTier } from '@/lib/subscription/plans'
+import { getPoolLimit, normalizeTier } from '@/lib/subscription/plans'
 
 /**
  * POST /api/whop/webhook
