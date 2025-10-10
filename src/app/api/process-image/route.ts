@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      // Check if admin (if we have a real user ID)
+      // Check if admin or handle usage limits
       if (xWhopUserId) {
         const adminList = (process.env.ADMIN_WHOP_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
         const agent = process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID;
@@ -142,6 +142,11 @@ export async function POST(request: NextRequest) {
           
           console.log(`✅ User verified - ${tier} tier (${usage.remaining} remaining):`, xWhopUserId);
         }
+      } else {
+        // No Whop headers available - this is the admin bypass mode
+        // For now, we'll allow unlimited access for admin bypass
+        // In a real implementation, you might want to use Whop's iframe SDK to get user info
+        console.log('👑 Admin bypass mode - unlimited access (no headers available)');
       }
     } catch (e) {
       console.log('❌ Authentication failed:', e);
