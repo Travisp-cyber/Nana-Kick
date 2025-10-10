@@ -27,6 +27,18 @@ export async function GET(request: NextRequest) {
       const xWhopUserId = request.headers.get('x-whop-user-id');
       const xWhopUserToken = request.headers.get('x-whop-user-token');
       
+      // Debug: Log all headers to see what's available in iframe context
+      console.log('🔍 Available headers in iframe context:', {
+        'x-whop-user-id': xWhopUserId,
+        'x-whop-user-token': xWhopUserToken,
+        'x-whop-authorization': request.headers.get('x-whop-authorization'),
+        'authorization': request.headers.get('authorization'),
+        'cookie': request.headers.get('cookie'),
+        'referer': request.headers.get('referer'),
+        'origin': request.headers.get('origin'),
+        'user-agent': request.headers.get('user-agent'),
+      });
+      
       if (xWhopUserId && xWhopUserToken) {
         // Headers are available, verify the token
         try {
@@ -76,31 +88,11 @@ export async function GET(request: NextRequest) {
           usage: result.usage,
         });
       } else {
-        // No user ID available - check if we can infer admin status from context
-        // This is a fallback for iframe contexts where headers might not be available
-        const adminList = (process.env.ADMIN_WHOP_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
-        
-        if (adminList.length > 0) {
-          // For iframe context without headers, assume admin access for now
-          // This is a temporary solution until we can properly integrate Whop's iframe SDK
-          console.log('⚠️ No headers available, assuming admin access for iframe context');
-          const adminLimit = 10000;
-          return NextResponse.json({
-            hasAccess: true,
-            isAdmin: true,
-            tier: 'admin',
-            usage: {
-              used: 0,
-              limit: adminLimit,
-              remaining: adminLimit,
-            }
-          });
-        } else {
-          return NextResponse.json(
-            { hasAccess: false, message: 'User authentication required' },
-            { status: 401 }
-          );
-        }
+        // No user ID available - cannot verify user
+        return NextResponse.json(
+          { hasAccess: false, message: 'User authentication required' },
+          { status: 401 }
+        );
       }
     } else {
       // Development mode - return admin access with trackable limit

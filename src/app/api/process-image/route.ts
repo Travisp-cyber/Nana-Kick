@@ -73,6 +73,18 @@ export async function POST(request: NextRequest) {
       const xWhopUserId = request.headers.get('x-whop-user-id');
       const xWhopUserToken = request.headers.get('x-whop-user-token');
       
+      // Debug: Log all headers to see what's available in iframe context
+      console.log('🔍 Available headers in iframe context:', {
+        'x-whop-user-id': xWhopUserId,
+        'x-whop-user-token': xWhopUserToken,
+        'x-whop-authorization': request.headers.get('x-whop-authorization'),
+        'authorization': request.headers.get('authorization'),
+        'cookie': request.headers.get('cookie'),
+        'referer': request.headers.get('referer'),
+        'origin': request.headers.get('origin'),
+        'user-agent': request.headers.get('user-agent'),
+      });
+      
       if (xWhopUserId && xWhopUserToken) {
         // Headers are available, verify the token
         try {
@@ -86,25 +98,15 @@ export async function POST(request: NextRequest) {
           console.log('⚠️ Using user ID from header directly:', whopUserId);
         }
       } else {
-        // Headers not available - check if we can infer admin status from context
-        // This is a fallback for iframe contexts where headers might not be available
-        const adminList = (process.env.ADMIN_WHOP_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
-        
-        if (adminList.length > 0) {
-          // For iframe context without headers, assume admin access for now
-          // This is a temporary solution until we can properly integrate Whop's iframe SDK
-          console.log('⚠️ No headers available, assuming admin access for iframe context');
-          whopUserId = 'iframe_admin_bypass';
-        } else {
-          console.log('❌ No Whop headers found, cannot verify user');
-          throw new Error('User authentication required');
-        }
+        // Headers not available - cannot verify user
+        console.log('❌ No Whop headers found, cannot verify user');
+        throw new Error('User authentication required');
       }
       
       // Check if admin or handle usage limits
       const adminList = (process.env.ADMIN_WHOP_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
       const agent = process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID;
-      const isAdmin = adminList.includes(whopUserId) || (agent && whopUserId === agent) || whopUserId === 'iframe_admin_bypass';
+      const isAdmin = adminList.includes(whopUserId) || (agent && whopUserId === agent);
       
       if (isAdmin) {
         console.log('👑 Admin user - unlimited access:', whopUserId);
@@ -114,17 +116,17 @@ export async function POST(request: NextRequest) {
         
         if (!hasAccess) {
           console.log('❌ User has no access pass:', whopUserId);
-          return NextResponse.json(
+    return NextResponse.json(
             { 
               error: 'No access',
               message: 'You need to purchase an access pass to use this feature.',
               isPremiumFeature: true,
               redirectTo: '/plans'
             },
-            { status: 403, headers: corsHeaders }
-          );
-        }
-        
+      { status: 403, headers: corsHeaders }
+    );
+  }
+  
         if (!usage || usage.used >= usage.limit) {
           console.log('❌ User exceeded limit:', whopUserId, usage);
           return NextResponse.json(
@@ -229,7 +231,7 @@ export async function POST(request: NextRequest) {
     const processImageWithTimeout = async () => {
       console.log('🔄 Starting Gemini API call...');
       const startTime = Date.now();
-      const result = await model.generateContent([imagePart, { text: editPrompt }]);
+    const result = await model.generateContent([imagePart, { text: editPrompt }]);
       const duration = Date.now() - startTime;
       console.log(`✅ Gemini API call completed in ${duration}ms`);
       return result;
