@@ -55,72 +55,36 @@ export async function POST(request: NextRequest) {
   
   // Check authentication and access rights
   if (!isDev) {
-    // Get the admin list for checking
-    const adminList = (process.env.ADMIN_WHOP_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
-    const agent = process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID;
-    
-    try {
-      // Try to get user information from Whop SDK
-      const { userId } = await whopSdk.verifyUserToken(request.headers);
-      const isAdmin = adminList.includes(userId) || (agent && userId === agent);
+    // For requests from Whop platform, trust Whop's access control
+    // Whop only shows the app to users who have purchased access
+    if (isWhopRequest) {
+      console.log('✅ Request from Whop platform - access managed by Whop');
       
-      console.log('🔍 User Authentication:', {
-        userId,
-        isAdmin,
-        isWhopRequest,
-      });
-      
-      // Admins always have access
-      if (isAdmin) {
-        console.log('✅ Admin user - access granted');
-      } else {
-        // For non-admin users, check if they have a valid membership/access pass
-        try {
-          // Check if user has access to the company's products
-          const memberships = await whopSdk.memberships.listMemberships({
-            userId,
-            valid: true,
-          });
-          
-          const hasValidMembership = memberships && memberships.data && memberships.data.length > 0;
-          
-          if (!hasValidMembership) {
-            console.log('❌ User does not have valid membership/access pass');
-            return NextResponse.json(
-              { 
-                error: 'Access pass required', 
-                message: 'Please purchase an access pass to use image editing.',
-                redirectTo: '/plans'
-              },
-              { status: 403, headers: corsHeaders }
-            );
-          }
-          
-          console.log('✅ User has valid membership:', memberships.data[0].id);
-        } catch (accessError) {
-          console.error('Error checking memberships:', accessError);
-          // If we can't verify access and it's not from Whop, deny
-          if (!isWhopRequest) {
-            return NextResponse.json(
-              { error: 'Unable to verify access', details: String(accessError) },
-              { status: 403, headers: corsHeaders }
-            );
-          }
-          // If it's from Whop and we can't check, allow it (Whop manages access)
-          console.log('⚠️ Could not verify membership but request is from Whop - allowing');
+      // Still log if it's an admin for monitoring
+      try {
+        const { userId } = await whopSdk.verifyUserToken(request.headers);
+        const adminList = (process.env.ADMIN_WHOP_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+        const agent = process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID;
+        const isAdmin = adminList.includes(userId) || (agent && userId === agent);
+        
+        if (isAdmin) {
+          console.log('👑 Admin user detected:', userId);
+        } else {
+          console.log('👤 Regular user:', userId);
         }
+      } catch (e) {
+        console.log('ℹ️ Could not identify user, but request is from Whop platform');
       }
-    } catch (authError) {
-      console.log('⚠️ Could not verify user token:', authError);
-      // If it's from Whop platform, allow it (Whop handles the auth)
-      if (isWhopRequest) {
-        console.log('✅ Request from Whop platform - allowing access');
-      } else {
-        return NextResponse.json(
-          { error: 'Authentication required' },
-          { status: 401, headers: corsHeaders }
-        );
-      }
+    } else {
+      // For non-Whop requests, require authentication
+      console.log('❌ Request not from Whop platform - authentication required');
+      return NextResponse.json(
+        { 
+          error: 'Access denied', 
+          message: 'This app can only be accessed through the Whop platform.',
+        },
+        { status: 403, headers: corsHeaders }
+      );
     }
   } else {
     console.log('⚠️  Development mode: Allowing access');
