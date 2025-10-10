@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
           usageResetDate: renewalDate ? new Date(renewalDate) : nextMonth,
         },
         create: {
-          whopUserId: membershipId,
+          whopUserId: membershipId || email, // Use email as fallback if membershipId is undefined
           email,
           currentTier: tier,
           generationsUsed: 0,
