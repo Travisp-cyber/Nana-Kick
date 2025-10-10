@@ -7,14 +7,31 @@ export const runtime = 'nodejs';
 export const maxDuration = 60; // 60 seconds timeout
 
 // --- CORS HEADERS ---
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+function getCorsHeaders(origin: string | null) {
+  const allowedOrigins = [
+    'https://whop.com',
+    'https://www.whop.com',
+    'https://nana-kick.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:3001',
+  ];
+  
+  // Allow all Whop subdomains (*.whop.com and *.apps.whop.com)
+  const isWhopOrigin = origin?.includes('whop.com') || origin?.includes('.apps.whop.com');
+  const isAllowed = allowedOrigins.includes(origin || '') || isWhopOrigin;
+  
+  return {
+    'Access-Control-Allow-Origin': isAllowed ? (origin || 'https://whop.com') : 'https://whop.com',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+    'Access-Control-Allow-Credentials': 'true',
+  };
+}
 
 // --- OPTIONS handler for preflight ---
-export async function OPTIONS() {
+export async function OPTIONS(request: NextRequest) {
+  const origin = request.headers.get('origin');
+  const corsHeaders = getCorsHeaders(origin);
   return new NextResponse(null, { status: 200, headers: corsHeaders });
 }
 
@@ -25,13 +42,16 @@ export async function POST(request: NextRequest) {
     if (!isProd) console.log(...args);
   };
 
+  // Get CORS headers based on origin
+  const origin = request.headers.get('origin');
+  const corsHeaders = getCorsHeaders(origin);
+
   // Check if we're in development mode - allow all requests
   const isDev = process.env.NODE_ENV !== 'production';
   
   // Check if request is coming from Whop platform (iframe context)
-  const origin = request.headers.get('origin') || '';
   const referer = request.headers.get('referer') || '';
-  const isWhopRequest = origin.includes('whop.com') || referer.includes('whop.com');
+  const isWhopRequest = origin?.includes('whop.com') || referer.includes('whop.com');
   
   // In production, check authentication for non-Whop requests
   if (!isDev && !isWhopRequest) {
