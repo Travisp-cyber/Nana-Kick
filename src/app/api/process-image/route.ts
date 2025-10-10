@@ -221,7 +221,7 @@ export async function POST(request: NextRequest) {
 
     dlog('Processing image with Gemini 2.5 Flash Image...');
     dlog('Edit prompt:', editPrompt);
-    dlog('Image size:', imageBytes.length, 'bytes');
+    dlog('Image size:', imageBytes.byteLength, 'bytes');
     dlog('Image type:', image.type);
 
     // Add timeout wrapper for Gemini API call
