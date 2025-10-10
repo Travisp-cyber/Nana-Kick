@@ -1,17 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireMemberOrAdmin } from '@/lib/auth'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Accept, Content-Type, Authorization, X-Requested-With',
+// Get CORS headers based on origin
+function getCorsHeaders(origin: string | null) {
+  const allowedOrigins = [
+    'https://whop.com',
+    'https://www.whop.com',
+    'https://nana-kick.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:3001',
+  ]
+  
+  // Allow Whop subdomains
+  const isWhopOrigin = origin?.includes('whop.com') || origin?.includes('.apps.whop.com')
+  const isAllowed = allowedOrigins.includes(origin || '') || isWhopOrigin
+  
+  return {
+    'Access-Control-Allow-Origin': isAllowed ? (origin || 'https://whop.com') : 'https://whop.com',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Accept, Content-Type, Authorization, X-Requested-With, x-whop-user-id, x-whop-user-token, x-whop-authorization',
+    'Access-Control-Allow-Credentials': 'true',
+  }
 }
 
-export async function OPTIONS() {
+export async function OPTIONS(request: NextRequest) {
+  const origin = request.headers.get('origin')
+  const corsHeaders = getCorsHeaders(origin)
   return new Response(null, { status: 200, headers: corsHeaders })
 }
 
 export async function POST(request: NextRequest) {
+  const origin = request.headers.get('origin')
+  const corsHeaders = getCorsHeaders(origin)
+  
   try {
     // Check authentication first
     const gate = await requireMemberOrAdmin()
