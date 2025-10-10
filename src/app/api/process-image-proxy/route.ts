@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       // Check if user is an admin
       const adminList = (process.env.ADMIN_WHOP_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean)
       const agent = process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID
-      isAdmin = userId ? (adminList.includes(userId) || (agent && userId === agent)) : false
+      isAdmin = Boolean(userId && (adminList.includes(userId) || (agent && userId === agent)))
       
       console.log('🔍 Whop SDK Auth:', {
         userId,
