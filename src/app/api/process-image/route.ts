@@ -28,33 +28,35 @@ export async function POST(request: NextRequest) {
   // Check if we're in development mode - allow all requests
   const isDev = process.env.NODE_ENV !== 'production';
   
-  // Members-only gate (admins bypass)
-  const gate = await requireMemberOrAdmin();
+  // Check if request is coming from Whop platform (iframe context)
+  const origin = request.headers.get('origin') || '';
+  const referer = request.headers.get('referer') || '';
+  const isWhopRequest = origin.includes('whop.com') || referer.includes('whop.com');
   
-  // Enhanced debug logging for gate check
-  console.log('🔍 Auth Gate Check:', {
-    environment: process.env.NODE_ENV,
-    allowed: gate.allowed,
-    reason: gate.reason,
-    userId: gate.session?.userId,
-    membershipId: gate.session?.membershipId,
-    agentId: process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID,
-    adminIds: process.env.ADMIN_WHOP_USER_IDS,
-    hasSession: !!gate.session,
-    sessionValid: gate.session?.isValid,
-  });
-  
-  // In development, be more permissive for testing
-  if (!gate.allowed && !isDev) {
-    console.log('❌ Access denied:', gate.reason);
-    return NextResponse.json(
-      { error: 'Members only', reason: gate.reason, debug: isDev ? gate : undefined },
-      { status: 403, headers: corsHeaders }
-    );
-  }
-  
-  if (isDev && !gate.allowed) {
-    console.log('⚠️  Development mode: Allowing access despite failed auth check');
+  // In production, check authentication for non-Whop requests
+  if (!isDev && !isWhopRequest) {
+    // Members-only gate (admins bypass) for non-Whop requests
+    const gate = await requireMemberOrAdmin();
+    
+    console.log('🔍 Auth Gate Check (non-Whop):', {
+      environment: process.env.NODE_ENV,
+      allowed: gate.allowed,
+      reason: gate.reason,
+      origin,
+      referer,
+    });
+    
+    if (!gate.allowed) {
+      console.log('❌ Access denied:', gate.reason);
+      return NextResponse.json(
+        { error: 'Members only', reason: gate.reason },
+        { status: 403, headers: corsHeaders }
+      );
+    }
+  } else if (isWhopRequest) {
+    console.log('✅ Request from Whop platform - allowing access', { origin, referer });
+  } else {
+    console.log('⚠️  Development mode: Allowing access');
   }
 
   dlog('=== API Route Called ===');

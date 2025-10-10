@@ -243,8 +243,8 @@ const [hoveredImage, setHoveredImage] = useState<string | null>(null);
     
     debug('Submitting form with instructions:', instructions.trim());
 
-    // Use the proxy endpoint that handles authentication properly
-    const apiUrl = getApiUrl('/api/process-image-proxy');
+    // Call the process-image endpoint directly (it will check auth server-side)
+    const apiUrl = getApiUrl('/api/process-image');
 
     try {
       const formData = new FormData();
