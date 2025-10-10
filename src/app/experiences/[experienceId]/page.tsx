@@ -243,8 +243,8 @@ const [hoveredImage, setHoveredImage] = useState<string | null>(null);
     
     debug('Submitting form with instructions:', instructions.trim());
 
-    // Get the correct API URL based on environment
-    const apiUrl = getApiUrl('/api/process-image');
+    // Use the proxy endpoint that handles authentication properly
+    const apiUrl = getApiUrl('/api/process-image-proxy');
 
     try {
       const formData = new FormData();
@@ -265,8 +265,8 @@ const [hoveredImage, setHoveredImage] = useState<string | null>(null);
       const response = await fetch(apiUrl, {
         method: 'POST',
         body: formData,
-        mode: 'cors', // Explicitly set CORS mode
-        credentials: 'omit', // Changed to omit to avoid credential issues
+        mode: 'cors',
+        credentials: 'include', // Include credentials so server can access Whop headers
       });
       
       debug('Response status:', response.status);
