@@ -345,17 +345,5 @@ export async function requireMemberOrAdmin() {
 
   // Fallback to local database subscription check
   const hasSub = await hasActiveSubscription(session.userId);
-  if (hasSub) {
-    return { allowed: true, reason: 'member', session } as const;
-  }
-  
-  // Final fallback: check email-based membership (from webhooks) for known user
-  if (session.userId === 'user_tpT8rH4IQk1dn') {
-    const emailMembership = await checkEmailMembership('tpark19.tp@gmail.com');
-    if (emailMembership) {
-      return { allowed: true, reason: 'email_member', session } as const;
-    }
-  }
-  
-  return { allowed: false, reason: 'no_subscription', session } as const;
+  return { allowed: hasSub, reason: hasSub ? 'member' : 'no_subscription', session } as const;
 }

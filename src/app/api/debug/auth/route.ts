@@ -6,11 +6,30 @@ export async function GET() {
     const session = await getWhopSession()
     const gate = await requireMemberOrAdmin()
     
+    // Check if user is actually an admin first
+    const isActualAdmin = session ? (
+      session.userId === process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID ||
+      (process.env.ADMIN_WHOP_USER_IDS || '').split(',').map(s => s.trim()).includes(session.userId)
+    ) : false
+    
+    // If not an admin, don't show sensitive admin config
+    if (!gate.allowed || (gate.reason !== 'admin' && gate.reason !== 'dev_mode' && !isActualAdmin)) {
+      return NextResponse.json({
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV,
+        gate: {
+          allowed: gate.allowed,
+          reason: gate.reason,
+        },
+        message: 'Access denied - admin privileges required for full debug info'
+      }, { status: 403 })
+    }
+    
     const debugInfo = {
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV,
       
-      // Session info
+      // Session info (only show to admins)
       session: session ? {
         userId: session.userId,
         membershipId: session.membershipId,
@@ -26,17 +45,14 @@ export async function GET() {
         reason: gate.reason,
       },
       
-      // Admin configuration
-      adminConfig: {
+      // Admin configuration (only show to verified admins)
+      adminConfig: isActualAdmin ? {
         agentUserId: process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID || 'not set',
         adminUserIds: process.env.ADMIN_WHOP_USER_IDS || 'not set',
-      },
+      } : { message: 'Admin config hidden - insufficient privileges' },
       
       // Is this user an admin?
-      isAdmin: session ? (
-        session.userId === process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID ||
-        (process.env.ADMIN_WHOP_USER_IDS || '').split(',').map(s => s.trim()).includes(session.userId)
-      ) : false,
+      isAdmin: isActualAdmin,
     }
     
     console.log('🔍 Auth Debug Info:', debugInfo)

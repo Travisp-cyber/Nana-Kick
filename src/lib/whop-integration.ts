@@ -88,7 +88,9 @@ export function verifyWhopSignature(req: NextRequest, rawBody: string): boolean 
   let signature = ''
   
   for (const part of sigParts) {
-    const [key, value] = part.split('=')
+    const [rawKey = '', rawValue = ''] = part.split('=')
+    const key = rawKey.trim()
+    const value = rawValue.trim()
     if (key === 't') timestamp = value
     if (key === 'v1') signature = value
   }
