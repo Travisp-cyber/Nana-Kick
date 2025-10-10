@@ -302,8 +302,14 @@ const [hoveredImage, setHoveredImage] = useState<string | null>(null);
           // It's a JSON response (error or info)
           const result = await response.json();
           console.error('Server response:', result);
-          setError(result.error || 'Failed to process image');
-          alert(`Error: ${result.error}\n${result.message || ''}`);
+          setError(result.message || result.error || 'Failed to process image');
+          
+          // Handle timeout specifically
+          if (response.status === 408) {
+            alert(`⏰ ${result.message}\n\nTry with a simpler prompt or smaller image.`);
+          } else {
+            alert(`Error: ${result.error}\n${result.message || ''}`);
+          }
         }
       } else {
         const result = await response.json();

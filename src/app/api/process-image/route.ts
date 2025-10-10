@@ -220,12 +220,51 @@ export async function POST(request: NextRequest) {
     const editPrompt = `Edit this image according to the following instructions: ${instructions}`;
 
     dlog('Processing image with Gemini 2.5 Flash Image...');
+    dlog('Edit prompt:', editPrompt);
+    dlog('Image size:', imageBytes.length, 'bytes');
+    dlog('Image type:', image.type);
 
-    const result = await model.generateContent([imagePart, { text: editPrompt }]);
+    // Add timeout wrapper for Gemini API call
+    const processImageWithTimeout = async () => {
+      console.log('🔄 Starting Gemini API call...');
+      const startTime = Date.now();
+      const result = await model.generateContent([imagePart, { text: editPrompt }]);
+      const duration = Date.now() - startTime;
+      console.log(`✅ Gemini API call completed in ${duration}ms`);
+      return result;
+    };
+
+    let result;
+    try {
+      // Set a 50-second timeout (Vercel has 60s limit)
+      result = await Promise.race([
+        processImageWithTimeout(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Image processing timeout after 50 seconds')), 50000)
+        )
+      ]) as any;
+    } catch (error) {
+      console.error('❌ Image processing failed:', error);
+      return NextResponse.json(
+        { 
+          error: 'Processing failed', 
+          message: error instanceof Error ? error.message : 'Image processing took too long. Please try again with a simpler request.',
+          details: process.env.NODE_ENV === 'development' ? error : undefined
+        },
+        { status: 408, headers: corsHeaders }
+      );
+    }
+
     const response = result.response;
     const candidate = response.candidates?.[0];
 
-    if (!candidate) throw new Error('No response candidate from Gemini.');
+    if (!candidate) {
+      console.error('❌ No response candidate from Gemini');
+      return NextResponse.json(
+        { error: 'Processing failed', message: 'AI model did not return a valid response. Please try again.' },
+        { status: 500, headers: corsHeaders }
+      );
+    }
 
     // --- Extract edited image ---
     const parts = candidate.content.parts;
