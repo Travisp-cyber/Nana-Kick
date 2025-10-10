@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireMemberOrAdmin } from '@/lib/auth'
+import { whopSdk } from '@/lib/whop-sdk'
 
 // Get CORS headers based on origin
 function getCorsHeaders(origin: string | null) {
@@ -34,37 +34,51 @@ export async function POST(request: NextRequest) {
   const corsHeaders = getCorsHeaders(origin)
   
   try {
-    // Check authentication first
-    const gate = await requireMemberOrAdmin()
+    // Use Whop SDK to verify the user token from headers
+    let userId: string | undefined
+    let isAdmin = false
     
-    console.log('🔍 Proxy Auth Gate Check:', {
-      environment: process.env.NODE_ENV,
-      allowed: gate.allowed,
-      reason: gate.reason,
-      userId: gate.session?.userId,
-      membershipId: gate.session?.membershipId,
-      agentId: process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID,
-      adminIds: process.env.ADMIN_WHOP_USER_IDS,
-      hasSession: !!gate.session,
-      sessionValid: gate.session?.isValid,
-      requestHeaders: {
-        'x-whop-user-id': request.headers.get('x-whop-user-id'),
-        'x-whop-user-token': request.headers.get('x-whop-user-token'),
-        'x-whop-authorization': request.headers.get('x-whop-authorization'),
-        'authorization': request.headers.get('authorization'),
-        'origin': request.headers.get('origin'),
-        'referer': request.headers.get('referer'),
+    try {
+      // The Whop SDK will extract the user token from request headers automatically
+      const { userId: verifiedUserId } = await whopSdk.verifyUserToken(request.headers)
+      userId = verifiedUserId
+      
+      // Check if user is an admin
+      const adminList = (process.env.ADMIN_WHOP_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean)
+      const agent = process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID
+      isAdmin = adminList.includes(userId) || (agent && userId === agent)
+      
+      console.log('🔍 Whop SDK Auth:', {
+        userId,
+        isAdmin,
+        adminList,
+        agentId: agent,
+      })
+      
+    } catch (authError) {
+      console.log('❌ Whop SDK authentication failed:', authError)
+      
+      // In development mode, allow access for testing
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('⚠️ Development mode: Allowing access despite auth failure')
+      } else {
+        return NextResponse.json(
+          { error: 'Authentication required', details: String(authError) },
+          { status: 401, headers: corsHeaders }
+        )
       }
-    })
+    }
     
-    // Only allow if user is authenticated (admin or member)
-    if (!gate.allowed) {
-      console.log('❌ Proxy access denied:', gate.reason)
+    // If we have a userId, check if they're authenticated
+    if (!userId && process.env.NODE_ENV === 'production') {
+      console.log('❌ No user ID found')
       return NextResponse.json(
-        { error: 'Members only', reason: gate.reason },
+        { error: 'Members only', reason: 'no_user_id' },
         { status: 403, headers: corsHeaders }
       )
     }
+    
+    console.log('✅ User authenticated:', { userId, isAdmin })
     
     // Get the form data from the request
     const formData = await request.formData()
@@ -72,16 +86,22 @@ export async function POST(request: NextRequest) {
     // Forward the request to the actual process-image endpoint
     const processImageUrl = `${request.nextUrl.origin}/api/process-image`
     
-    console.log('🔄 Proxying request to:', processImageUrl)
+    console.log('🔄 Proxying request to:', processImageUrl, { userId, isAdmin })
     
-    // Create a new request with all the original headers
+    // Create a new request with headers that include the verified user ID
+    const forwardHeaders = new Headers(request.headers)
+    if (userId) {
+      forwardHeaders.set('x-whop-user-id', userId)
+      // Mark as admin if applicable
+      if (isAdmin) {
+        forwardHeaders.set('x-verified-admin', 'true')
+      }
+    }
+    
     const newRequest = new Request(processImageUrl, {
       method: 'POST',
       body: formData,
-      headers: {
-        // Copy all headers from the original request
-        ...Object.fromEntries(request.headers.entries()),
-      }
+      headers: forwardHeaders,
     })
     
     const response = await fetch(newRequest)
