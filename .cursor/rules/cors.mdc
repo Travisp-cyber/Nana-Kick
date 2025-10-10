@@ -1,0 +1,5 @@
+---
+alwaysApply: false
+---
+Cannot use wildcard in Access-Control-Allow-Origin when credentials flag is true"
+

@@ -308,8 +308,18 @@ const [hoveredImage, setHoveredImage] = useState<string | null>(null);
       } else {
         const result = await response.json();
         console.error('API Error:', result);
-        setError(`API Error: ${result.error}`);
-        alert(`API Error: ${result.error}\n${result.message || ''}`);
+        
+        // Check if it's an access pass required error
+        if (response.status === 403 && result.redirectTo) {
+          setError(`${result.message || 'Access pass required'}`);
+          // Show a dialog to redirect to plans page
+          if (confirm(`${result.message}\n\nWould you like to view available plans?`)) {
+            window.location.href = result.redirectTo;
+          }
+        } else {
+          setError(`API Error: ${result.error}`);
+          alert(`API Error: ${result.error}\n${result.message || ''}`);
+        }
       }
     } catch (error) {
       console.error('Error submitting form:', error);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { requireMemberOrAdmin } from '@/lib/auth';
+import { requireMemberOrAdmin, getWhopSession } from '@/lib/auth';
+import { whopSdk } from '@/lib/whop-sdk';
 
 // Configure the API route
 export const runtime = 'nodejs';
@@ -53,28 +54,70 @@ export async function POST(request: NextRequest) {
   const referer = request.headers.get('referer') || '';
   const isWhopRequest = origin?.includes('whop.com') || referer.includes('whop.com');
   
-  // In production, check authentication for non-Whop requests
-  if (!isDev && !isWhopRequest) {
-    // Members-only gate (admins bypass) for non-Whop requests
-    const gate = await requireMemberOrAdmin();
+  // Check authentication and access rights
+  if (!isDev) {
+    // Get the admin list for checking
+    const adminList = (process.env.ADMIN_WHOP_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+    const agent = process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID;
     
-    console.log('🔍 Auth Gate Check (non-Whop):', {
-      environment: process.env.NODE_ENV,
-      allowed: gate.allowed,
-      reason: gate.reason,
-      origin,
-      referer,
-    });
-    
-    if (!gate.allowed) {
-      console.log('❌ Access denied:', gate.reason);
-      return NextResponse.json(
-        { error: 'Members only', reason: gate.reason },
-        { status: 403, headers: corsHeaders }
-      );
+    try {
+      // Try to get user information from Whop SDK
+      const { userId } = await whopSdk.verifyUserToken(request.headers);
+      const isAdmin = adminList.includes(userId) || (agent && userId === agent);
+      
+      console.log('🔍 User Authentication:', {
+        userId,
+        isAdmin,
+        isWhopRequest,
+      });
+      
+      // Admins always have access
+      if (isAdmin) {
+        console.log('✅ Admin user - access granted');
+      } else {
+        // For non-admin users, check if they have a valid membership/access pass
+        try {
+          const { hasAccess } = await whopSdk.hasAccess({
+            to: process.env.NEXT_PUBLIC_WHOP_COMPANY_ID || '',
+            headers: request.headers,
+          });
+          
+          if (!hasAccess) {
+            console.log('❌ User does not have valid access pass');
+            return NextResponse.json(
+              { 
+                error: 'Access pass required', 
+                message: 'Please purchase an access pass to use image editing.',
+                redirectTo: '/plans'
+              },
+              { status: 403, headers: corsHeaders }
+            );
+          }
+          
+          console.log('✅ User has valid access pass');
+        } catch (accessError) {
+          console.error('Error checking access:', accessError);
+          // If we can't verify access and it's not from Whop, deny
+          if (!isWhopRequest) {
+            return NextResponse.json(
+              { error: 'Unable to verify access', details: String(accessError) },
+              { status: 403, headers: corsHeaders }
+            );
+          }
+        }
+      }
+    } catch (authError) {
+      console.log('⚠️ Could not verify user token:', authError);
+      // If it's from Whop platform, allow it (Whop handles the auth)
+      if (isWhopRequest) {
+        console.log('✅ Request from Whop platform - allowing access');
+      } else {
+        return NextResponse.json(
+          { error: 'Authentication required' },
+          { status: 401, headers: corsHeaders }
+        );
+      }
     }
-  } else if (isWhopRequest) {
-    console.log('✅ Request from Whop platform - allowing access', { origin, referer });
   } else {
     console.log('⚠️  Development mode: Allowing access');
   }
