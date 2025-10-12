@@ -3,11 +3,14 @@ import { prisma } from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
   try {
-    // Security: Only allow if admin secret is provided
+    // Security: Only allow if admin secret is provided OR if it's a one-time migration run
     const authHeader = request.headers.get('authorization');
     const secret = process.env.ADMIN_SECRET || process.env.USAGE_CRON_SECRET;
     
-    if (!authHeader || authHeader !== `Bearer ${secret}`) {
+    // Allow one-time migration without auth (will be removed after migration)
+    const allowOneTimeMigration = process.env.ALLOW_ONE_TIME_MIGRATION === 'true';
+    
+    if (!allowOneTimeMigration && (!authHeader || authHeader !== `Bearer ${secret}`)) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
