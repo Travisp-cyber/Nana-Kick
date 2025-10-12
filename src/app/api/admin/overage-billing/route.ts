@@ -32,7 +32,7 @@ function isAdmin(request: NextRequest): boolean {
   const adminList = (process.env.ADMIN_WHOP_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
   const agent = process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID;
   
-  return adminList.includes(whopUserId) || (agent && whopUserId === agent);
+  return adminList.includes(whopUserId) || (!!agent && whopUserId === agent);
 }
 
 /**
