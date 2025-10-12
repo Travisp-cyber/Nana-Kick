@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
           console.log(`⚠️ User in overage: ${whopUserId}, will charge $${overageCost.toFixed(2)} per generation`);
           console.log(`   Current overage: ${usage.overageUsed || 0} extra gens, $${(usage.overageCharges || 0).toFixed(2)} total`);
           // Continue processing - overage will be charged automatically
-        } else {
+        } else if (usage) {
           console.log(`✅ User verified - ${tier} tier (${usage.remaining} remaining):`, whopUserId);
         }
       }
