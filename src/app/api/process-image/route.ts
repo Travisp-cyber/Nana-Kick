@@ -151,24 +151,15 @@ export async function POST(request: NextRequest) {
     );
   }
   
-        if (!usage || usage.used >= usage.limit) {
-          console.log('❌ User exceeded limit:', whopUserId, usage);
-          return NextResponse.json(
-            { 
-              error: 'Limit reached',
-              message: `You've used all ${usage?.limit || 0} generations for this month. Upgrade or wait for reset.`,
-              usage: {
-                used: usage?.used || 0,
-                limit: usage?.limit || 0,
-                resetDate: usage?.resetDate?.toISOString()
-              },
-              redirectTo: '/plans'
-            },
-            { status: 429, headers: corsHeaders }
-          );
+        // Check if user is at or over their limit - warn about overage charges
+        if (usage && usage.used >= usage.limit) {
+          const overageCost = (usage.overageCentsPerGen || 10) / 100;
+          console.log(`⚠️ User in overage: ${whopUserId}, will charge $${overageCost.toFixed(2)} per generation`);
+          console.log(`   Current overage: ${usage.overageUsed || 0} extra gens, $${(usage.overageCharges || 0).toFixed(2)} total`);
+          // Continue processing - overage will be charged automatically
+        } else {
+          console.log(`✅ User verified - ${tier} tier (${usage.remaining} remaining):`, whopUserId);
         }
-        
-        console.log(`✅ User verified - ${tier} tier (${usage.remaining} remaining):`, whopUserId);
       }
     } catch (e) {
       console.log('❌ Authentication failed:', e);

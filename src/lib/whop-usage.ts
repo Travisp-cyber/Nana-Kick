@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { whopSdk } from '@/lib/whop-sdk';
-import { PLAN_POOL_LIMITS, type PlanTier } from '@/lib/subscription/plans';
+import { PLAN_POOL_LIMITS, getOverageCents, type PlanTier } from '@/lib/subscription/plans';
 
 export async function getUserTierAndUsage(whopUserId: string) {
   // Get or create user in database
@@ -13,6 +13,9 @@ export async function getUserTierAndUsage(whopUserId: string) {
       generationsUsed: true,
       generationsLimit: true,
       usageResetDate: true,
+      overageUsed: true,
+      overageCharges: true,
+      lastBillingDate: true,
     }
   });
 
@@ -71,6 +74,8 @@ export async function getUserTierAndUsage(whopUserId: string) {
         generationsUsed: 0,
         generationsLimit: limit,
         usageResetDate: nextMonth,
+        overageUsed: 0,
+        overageCharges: 0,
       },
       select: {
         id: true,
@@ -79,6 +84,9 @@ export async function getUserTierAndUsage(whopUserId: string) {
         generationsUsed: true,
         generationsLimit: true,
         usageResetDate: true,
+        overageUsed: true,
+        overageCharges: true,
+        lastBillingDate: true,
       }
     });
   } else {
@@ -88,9 +96,12 @@ export async function getUserTierAndUsage(whopUserId: string) {
         where: { whopUserId },
         data: {
           generationsUsed: 0,
+          overageUsed: 0,
+          overageCharges: 0,
           usageResetDate: nextMonth,
           currentTier: userTier,
           generationsLimit: limit,
+          lastBillingDate: now,
         },
         select: {
           id: true,
@@ -99,6 +110,9 @@ export async function getUserTierAndUsage(whopUserId: string) {
           generationsUsed: true,
           generationsLimit: true,
           usageResetDate: true,
+          overageUsed: true,
+          overageCharges: true,
+          lastBillingDate: true,
         }
       });
     }
@@ -118,11 +132,16 @@ export async function getUserTierAndUsage(whopUserId: string) {
           generationsUsed: true,
           generationsLimit: true,
           usageResetDate: true,
+          overageUsed: true,
+          overageCharges: true,
+          lastBillingDate: true,
         }
       });
     }
   }
 
+  const overageCentsPerGen = getOverageCents(userTier as PlanTier);
+  
   return {
     hasAccess: true,
     tier: userTier,
@@ -131,18 +150,62 @@ export async function getUserTierAndUsage(whopUserId: string) {
       limit: user.generationsLimit || limit,
       remaining: Math.max((user.generationsLimit || limit) - user.generationsUsed, 0),
       resetDate: user.usageResetDate,
+      overageUsed: user.overageUsed,
+      overageCharges: user.overageCharges,
+      overageCentsPerGen: overageCentsPerGen,
+      lastBillingDate: user.lastBillingDate,
     }
   };
 }
 
 export async function incrementUsage(whopUserId: string): Promise<boolean> {
   try {
-    await prisma.user.update({
+    // Get current user state
+    const user = await prisma.user.findUnique({
       where: { whopUserId },
-      data: {
-        generationsUsed: { increment: 1 },
+      select: {
+        generationsUsed: true,
+        generationsLimit: true,
+        currentTier: true,
+        overageUsed: true,
+        overageCharges: true,
       }
     });
+
+    if (!user) {
+      console.error('User not found for increment:', whopUserId);
+      return false;
+    }
+
+    const limit = user.generationsLimit || 0;
+    
+    // Check if user is at or over their limit
+    if (user.generationsUsed >= limit) {
+      // User is in overage - charge per generation
+      const overageCents = getOverageCents((user.currentTier || 'starter') as PlanTier);
+      const overageCharge = overageCents / 100; // Convert cents to dollars
+      
+      await prisma.user.update({
+        where: { whopUserId },
+        data: {
+          overageUsed: { increment: 1 },
+          overageCharges: { increment: overageCharge },
+        }
+      });
+      
+      console.log(`📊 Overage usage incremented for ${whopUserId}: +$${overageCharge.toFixed(2)} (total: ${user.overageUsed + 1} extra gens)`);
+    } else {
+      // Normal usage within limit
+      await prisma.user.update({
+        where: { whopUserId },
+        data: {
+          generationsUsed: { increment: 1 },
+        }
+      });
+      
+      console.log(`📊 Usage incremented for ${whopUserId}: ${user.generationsUsed + 1}/${limit}`);
+    }
+    
     return true;
   } catch (err) {
     console.error('Failed to increment usage:', err);

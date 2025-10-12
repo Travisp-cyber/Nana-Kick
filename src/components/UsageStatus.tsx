@@ -11,6 +11,8 @@ export function UsageStatus({ memberId: propMemberId }: { memberId?: string }) {
     current_usage: number
     remaining: number
     overage_cents: number
+    overage_used: number
+    overage_charges: number
   } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -53,7 +55,9 @@ export function UsageStatus({ memberId: propMemberId }: { memberId?: string }) {
               pool_limit: json.usage.limit || 0,
               current_usage: json.usage.used || 0,
               remaining: json.usage.remaining || 0,
-              overage_cents: 0
+              overage_cents: json.usage.overageCentsPerGen || 0,
+              overage_used: json.usage.overageUsed || 0,
+              overage_charges: json.usage.overageCharges || 0,
             })
           }
         }
@@ -148,11 +152,16 @@ export function UsageStatus({ memberId: propMemberId }: { memberId?: string }) {
   const used = data ? data.current_usage : 0
   const total = Math.max(data ? data.pool_limit : 0, 1)
   const plan = data?.plan || 'starter'
-  const overage = data?.overage_cents ?? 0
+  const overageCents = data?.overage_cents ?? 0
+  const overageUsed = data?.overage_used ?? 0
+  const overageCharges = data?.overage_charges ?? 0
   const pct = Math.min(Math.round((used / total) * 100), 100)
   
   // Display plan with admin indicator
   const planDisplay = authStatus?.isAdmin ? `${plan} (admin)` : `${plan} plan`
+  
+  // Check if user is in overage
+  const isInOverage = used >= total && overageUsed > 0
 
   return (
     <div className="flex items-center gap-4 bg-white/80 backdrop-blur px-4 py-2 rounded-xl shadow border border-black/5">
@@ -165,11 +174,22 @@ export function UsageStatus({ memberId: propMemberId }: { memberId?: string }) {
               style={{ width: `${pct}%` }}
             />
           </div>
-          <div className="text-sm text-gray-800 font-medium">{used}/{total} generations used</div>
+          <div className="text-sm text-gray-800 font-medium">
+            {isInOverage ? (
+              <span>{total}/{total} + {overageUsed} extra (${overageCharges.toFixed(2)})</span>
+            ) : (
+              <span>{used}/{total} remaining</span>
+            )}
+          </div>
         </div>
-        {used >= total && (
-          <div className="text-xs text-gray-500 mt-1">
-            Overage: ${ (overage/100).toFixed(2) }/gen
+        {used >= total && !isInOverage && (
+          <div className="text-xs text-orange-600 mt-1 font-medium">
+            ⚠️ At limit - Extra: ${(overageCents/100).toFixed(2)}/gen
+          </div>
+        )}
+        {isInOverage && (
+          <div className="text-xs text-orange-600 mt-1 font-medium">
+            💳 Overage: {overageUsed} gens × ${(overageCents/100).toFixed(2)} = ${overageCharges.toFixed(2)}
           </div>
         )}
       </div>

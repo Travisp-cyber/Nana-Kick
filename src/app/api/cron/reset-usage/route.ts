@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { resetAllOverage } from '@/lib/whop-billing';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -56,6 +57,8 @@ export async function GET(request: NextRequest) {
         whopUserId: true,
         generationsUsed: true,
         currentTier: true,
+        overageUsed: true,
+        overageCharges: true,
       }
     });
 
@@ -70,7 +73,12 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Reset usage for all eligible users
+    // Step 1: Process overage billing for users who exceeded their limits
+    console.log('[CRON] Processing overage billing...');
+    const overageResult = await resetAllOverage();
+    console.log(`[CRON] ${overageResult.message}`);
+
+    // Step 2: Reset usage for all eligible users (including overage)
     const result = await prisma.user.updateMany({
       where: {
         usageResetDate: {
@@ -79,7 +87,10 @@ export async function GET(request: NextRequest) {
       },
       data: {
         generationsUsed: 0,
-        usageResetDate: nextMonth
+        overageUsed: 0,
+        overageCharges: 0,
+        usageResetDate: nextMonth,
+        lastBillingDate: now,
       }
     });
 
@@ -87,7 +98,10 @@ export async function GET(request: NextRequest) {
 
     // Log details about reset users
     usersToReset.forEach(user => {
-      console.log(`[CRON] Reset user ${user.whopUserId}: ${user.generationsUsed} generations → 0 (tier: ${user.currentTier})`);
+      const overageInfo = user.overageUsed > 0 
+        ? ` + ${user.overageUsed} overage ($${user.overageCharges.toFixed(2)})`
+        : '';
+      console.log(`[CRON] Reset user ${user.whopUserId}: ${user.generationsUsed} generations${overageInfo} → 0 (tier: ${user.currentTier})`);
     });
 
     return NextResponse.json({
@@ -96,9 +110,15 @@ export async function GET(request: NextRequest) {
       usersReset: result.count,
       nextResetDate: nextMonth.toISOString(),
       timestamp: now.toISOString(),
+      overageBilling: {
+        usersBilled: overageResult.usersReset,
+        totalRevenue: overageResult.totalRevenue,
+      },
       details: usersToReset.map(u => ({
         whopUserId: u.whopUserId,
         previousUsage: u.generationsUsed,
+        overageUsed: u.overageUsed,
+        overageCharges: u.overageCharges,
         tier: u.currentTier
       }))
     });

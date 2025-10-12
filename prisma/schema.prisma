@@ -25,6 +25,11 @@ model User {
   generationsLimit   Int?           // tier-based limit
   usageResetDate     DateTime?      // when to reset counter
   
+  // Overage tracking fields
+  overageUsed        Int            @default(0)  // extra generations beyond limit
+  overageCharges     Float          @default(0)  // accumulated charges in dollars
+  lastBillingDate    DateTime?      // when overage was last billed
+  
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
   accessLogs         AccessLog[]
