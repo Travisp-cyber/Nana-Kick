@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     try {
       // First try to get user from headers (if available)
       // Check both lowercase and uppercase headers (for Safari compatibility)
-      let xWhopUserId = request.headers.get('x-whop-user-id') || request.headers.get('X-Whop-User-Id');
+      const xWhopUserId = request.headers.get('x-whop-user-id') || request.headers.get('X-Whop-User-Id');
       const xWhopUserToken = request.headers.get('x-whop-user-token');
       
       // Debug: Log all headers to see what's available in iframe context
