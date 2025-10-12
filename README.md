@@ -198,7 +198,7 @@ This app is production-ready! Follow these steps:
 
 ### New Features (Just Added!)
 
-- ✅ **Automated Monthly Usage Reset**: Vercel cron job resets user limits on the 1st of each month
+- ✅ **Automated Daily Usage Reset**: Vercel cron job resets user limits on their individual subscription anniversary
 - ✅ **Health Check Endpoint**: `/api/health` for monitoring system status
 - ✅ **Production Ready**: Complete with error handling, logging, and monitoring
 

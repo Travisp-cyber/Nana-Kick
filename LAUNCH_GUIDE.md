@@ -14,10 +14,11 @@ This guide will walk you through the final steps to test and launch your app for
 - [x] Access Passes created in Whop (4 tiers)
 - [x] Plan IDs configured
 
-## New Feature: Monthly Usage Reset (Just Added!)
+## New Feature: Daily Usage Reset Cron (Just Added!)
 
 ### What It Does
-Automatically resets user generation limits on the 1st of each month at midnight UTC.
+Automatically resets user generation limits on their individual subscription anniversary date.
+Runs daily at midnight UTC to check which users need their limits reset.
 
 ### Setup Required
 
@@ -83,7 +84,8 @@ curl -X GET https://your-app.vercel.app/api/cron/reset-usage \
 
 The cron job is configured in `vercel.json`:
 - **Path:** `/api/cron/reset-usage`
-- **Schedule:** `0 0 1 * *` (midnight on the 1st of each month, UTC)
+- **Schedule:** `0 0 * * *` (midnight every day, UTC)
+- **Purpose:** Resets users on their individual subscription anniversary dates
 
 You can view cron job logs in:
 - Vercel Dashboard → Your Project → Logs → Filter by `/api/cron`

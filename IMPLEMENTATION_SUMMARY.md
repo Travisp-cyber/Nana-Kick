@@ -8,12 +8,13 @@ This document summarizes the features that were just added to make your app prod
 
 ## ✅ New Features Added
 
-### 1. Automated Monthly Usage Reset (Critical!)
+### 1. Automated Daily Usage Reset (Critical!)
 
 **File:** `src/app/api/cron/reset-usage/route.ts`
 
 **What it does:**
-- Automatically resets user generation limits on the 1st of each month at midnight UTC
+- Automatically resets user generation limits on their individual subscription anniversary date
+- Runs daily at midnight UTC to check which users need reset
 - Queries all users whose `usageResetDate` has passed
 - Sets `generationsUsed` back to 0
 - Updates `usageResetDate` to next month
@@ -32,7 +33,7 @@ curl -X GET https://your-app.vercel.app/api/cron/reset-usage \
   -H "Authorization: Bearer YOUR_CRON_SECRET"
 ```
 
-**Configuration:** Already added to `vercel.json` with schedule: `0 0 1 * *`
+**Configuration:** Already added to `vercel.json` with schedule: `0 0 * * *` (daily at midnight UTC)
 
 ---
 
@@ -94,13 +95,15 @@ curl -X GET https://your-app.vercel.app/api/cron/reset-usage \
 "crons": [
   {
     "path": "/api/cron/reset-usage",
-    "schedule": "0 0 1 * *"
+    "schedule": "0 0 * * *"
   }
 ]
 ```
 
 **Schedule Explanation:**
-- `0 0 1 * *` = Runs at midnight (00:00) on the 1st day of every month (UTC)
+- `0 0 * * *` = Runs at midnight (00:00) every day (UTC)
+- Checks each user's individual `usageResetDate` field
+- Resets users on their subscription anniversary (e.g., subscribed Oct 15 → resets Nov 15)
 - Automatically managed by Vercel
 - No additional setup required (except deploying)
 
@@ -274,8 +277,9 @@ No logs by default (lightweight endpoint), only logs on errors.
 ## 🚨 Important Notes
 
 ### About the Cron Schedule
-- **Runs:** 1st of every month at 00:00 UTC
-- **First run:** Will run on November 1st, 2025 at midnight
+- **Runs:** Every day at 00:00 UTC
+- **First run:** Will run tomorrow at midnight UTC
+- **Resets:** Users on their individual subscription anniversary
 - **Testing:** Must be done manually with curl command (can't trigger via Vercel UI)
 
 ### About CRON_SECRET

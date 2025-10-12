@@ -2,7 +2,7 @@
 
 ## What Was Just Implemented ✅
 
-1. **Monthly Usage Reset Cron Job** - Automatically resets user limits on the 1st of each month
+1. **Daily Usage Reset Cron Job** - Automatically resets user limits on their individual subscription anniversary
 2. **Health Check Endpoint** - Monitor system status at `/api/health`
 3. **Complete Testing Guide** - Step-by-step instructions in `LAUNCH_GUIDE.md`
 4. **Cron Secret Generator** - Helper script to generate secure authentication

@@ -118,18 +118,16 @@ export default function PlansPage() {
           {/* Starter */}
           <div className="rounded-2xl border border-white/10 bg-neutral-900 p-8 flex flex-col">
             <div className="mb-6">
-              <h3 className="text-2xl font-semibold">Starter</h3>
-              <p className="text-sm text-gray-400">Perfect for trying it out</p>
+              <h3 className="text-2xl font-semibold">🧩 Starter</h3>
+              <p className="text-sm text-gray-400">Perfect for trying out AI thumbnail editing</p>
             </div>
             <div className="mb-6">
               <p className="text-5xl font-bold">$9</p>
               <p className="text-gray-400">per month</p>
             </div>
             <ul className="space-y-3 text-sm text-gray-300 mb-8">
-              <li className="flex items-center gap-2"><span className="text-orange-500">•</span> Premium AI models</li>
-              <li className="flex items-center gap-2"><span className="text-orange-500">•</span> Priority support</li>
-              <li className="flex items-center gap-2"><span className="text-orange-500">•</span> Faster response time</li>
-              <li className="flex items-center gap-2"><span className="text-orange-500">•</span> Custom prompts</li>
+              <li className="flex items-center gap-2"><span className="text-orange-500">•</span> 50 generations per month</li>
+              <li className="flex items-center gap-2"><span className="text-orange-500">•</span> $0.10 per extra generation</li>
             </ul>
             <Link
               href={STARTER_URL || '#'}
@@ -146,18 +144,16 @@ export default function PlansPage() {
               Most Popular
             </div>
             <div className="mb-6">
-              <h3 className="text-2xl font-semibold">Creator</h3>
-              <p className="text-sm text-gray-400">Perfect for creators and content makers</p>
+              <h3 className="text-2xl font-semibold">🎨 Creator</h3>
+              <p className="text-sm text-gray-400">Best for creators who edit regularly</p>
             </div>
             <div className="mb-6">
               <p className="text-5xl font-bold">$29</p>
               <p className="text-gray-400">per month</p>
             </div>
             <ul className="space-y-3 text-sm text-gray-300 mb-8">
-              <li className="flex items-center gap-2"><span className="text-orange-500">•</span> All Starter features</li>
-              <li className="flex items-center gap-2"><span className="text-orange-500">•</span> Advanced features</li>
-              <li className="flex items-center gap-2"><span className="text-orange-500">•</span> Custom prompts</li>
-              <li className="flex items-center gap-2"><span className="text-orange-500">•</span> Priority support</li>
+              <li className="flex items-center gap-2"><span className="text-orange-500">•</span> 500 generations per month</li>
+              <li className="flex items-center gap-2"><span className="text-orange-500">•</span> $0.08 per extra generation</li>
             </ul>
             <Link
               href={CREATOR_URL || '#'}
@@ -171,17 +167,16 @@ export default function PlansPage() {
           {/* Brand */}
           <div className="rounded-2xl border border-white/10 bg-neutral-900 p-8 flex flex-col">
             <div className="mb-6">
-              <h3 className="text-2xl font-semibold">Brand</h3>
-              <p className="text-sm text-gray-400">Great for teams and small brands</p>
+              <h3 className="text-2xl font-semibold">🚀 Brand</h3>
+              <p className="text-sm text-gray-400">For small teams or channels producing at scale</p>
             </div>
             <div className="mb-6">
               <p className="text-5xl font-bold">$69</p>
               <p className="text-gray-400">per month</p>
             </div>
             <ul className="space-y-3 text-sm text-gray-300 mb-8">
-              <li className="flex items-center gap-2"><span className="text-orange-500">•</span> All Creator features</li>
-              <li className="flex items-center gap-2"><span className="text-orange-500">•</span> Team collaboration</li>
-              <li className="flex items-center gap-2"><span className="text-orange-500">•</span> Higher limits</li>
+              <li className="flex items-center gap-2"><span className="text-orange-500">•</span> 1,000 generations per month</li>
+              <li className="flex items-center gap-2"><span className="text-orange-500">•</span> $0.06 per extra generation</li>
             </ul>
             <Link
               href={BRAND_URL || '#'}
@@ -195,25 +190,23 @@ export default function PlansPage() {
           {/* Professional */}
           <div className="rounded-2xl border border-white/10 bg-neutral-900 p-8 flex flex-col">
             <div className="mb-6">
-              <h3 className="text-2xl font-semibold">Professional</h3>
-              <p className="text-sm text-gray-400">Ideal for growing businesses</p>
+              <h3 className="text-2xl font-semibold">💼 Pro</h3>
+              <p className="text-sm text-gray-400">Built for studios and power users who need high limits</p>
             </div>
             <div className="mb-6">
               <p className="text-5xl font-bold">$99</p>
               <p className="text-gray-400">per month</p>
             </div>
             <ul className="space-y-3 text-sm text-gray-300 mb-8">
-              <li className="flex items-center gap-2"><span className="text-orange-500">•</span> All premium models</li>
-              <li className="flex items-center gap-2"><span className="text-orange-500">•</span> Dedicated support</li>
-              <li className="flex items-center gap-2"><span className="text-orange-500">•</span> Custom integrations</li>
-              <li className="flex items-center gap-2"><span className="text-orange-500">•</span> API access</li>
+              <li className="flex items-center gap-2"><span className="text-orange-500">•</span> 1,500 generations per month</li>
+              <li className="flex items-center gap-2"><span className="text-orange-500">•</span> $0.05 per extra generation</li>
             </ul>
             <Link
               href={PRO_URL || '#'}
               onClick={(e) => { e.preventDefault(); handlePurchase(PRO_PLAN_ID, PRO_URL || undefined); }}
               className="mt-auto text-center bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl py-3 transition-colors"
             >
-              Upgrade to Professional
+              Upgrade to Pro
             </Link>
           </div>
         </div>

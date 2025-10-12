@@ -5,12 +5,13 @@ export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 /**
- * Monthly Usage Reset Cron Job
+ * Daily Usage Reset Cron Job
  * 
- * This endpoint is called by Vercel Cron on the 1st of each month at midnight.
- * It resets the usage counter for all users whose reset date has passed.
+ * This endpoint is called by Vercel Cron every day at midnight UTC.
+ * It resets the usage counter for all users whose individual reset date has passed.
+ * Each user resets on their own subscription anniversary (e.g., subscribed on Oct 15 = resets on Nov 15).
  * 
- * Schedule: 0 0 1 * * (midnight on the 1st of each month)
+ * Schedule: 0 0 * * * (midnight every day, UTC)
  * 
  * To test manually:
  * curl -X GET https://your-app.vercel.app/api/cron/reset-usage \
