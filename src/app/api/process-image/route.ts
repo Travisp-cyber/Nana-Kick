@@ -70,12 +70,14 @@ export async function POST(request: NextRequest) {
     // For Whop iframe requests, we need to use the Whop SDK differently
     try {
       // First try to get user from headers (if available)
-      const xWhopUserId = request.headers.get('x-whop-user-id');
+      // Check both lowercase and uppercase headers (for Safari compatibility)
+      let xWhopUserId = request.headers.get('x-whop-user-id') || request.headers.get('X-Whop-User-Id');
       const xWhopUserToken = request.headers.get('x-whop-user-token');
       
       // Debug: Log all headers to see what's available in iframe context
       console.log('🔍 Available headers in iframe context:', {
         'x-whop-user-id': xWhopUserId,
+        'X-Whop-User-Id': request.headers.get('X-Whop-User-Id'),
         'x-whop-user-token': xWhopUserToken,
         'x-whop-authorization': request.headers.get('x-whop-authorization'),
         'authorization': request.headers.get('authorization'),
@@ -112,12 +114,13 @@ export async function POST(request: NextRequest) {
           }
         }
       } else if (xWhopUserId) {
-        // Direct user ID available
+        // Direct user ID available (from frontend SDK, useful for Safari)
         whopUserId = xWhopUserId;
-        console.log('✅ Using direct user ID:', whopUserId);
+        console.log('✅ Using direct user ID from frontend SDK:', whopUserId);
       } else {
         // Headers not available - cannot verify user
         console.log('❌ No Whop headers found, cannot verify user');
+        console.log('💡 This usually means cookies are blocked (Safari) and the frontend SDK is not sending the user ID');
         throw new Error('User authentication required');
       }
       

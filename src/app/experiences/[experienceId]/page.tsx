@@ -5,6 +5,7 @@ import { getApiUrl, debugApi } from '@/lib/api-config';
 import NextImage from "next/image";
 import Link from "next/link";
 import { UsageStatus } from '@/components/UsageStatus';
+import { useIframeSdk } from '@whop/react';
 
 interface ImageHistoryItem {
   url: string;
@@ -17,6 +18,9 @@ interface ExperiencePageProps {
 }
 
 export default function ExperiencePage({ }: ExperiencePageProps) {
+  // Whop SDK for authentication in iframe
+  const { user } = useIframeSdk();
+  
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [instructions, setInstructions] = useState<string>("");
@@ -262,11 +266,19 @@ const [hoveredImage, setHoveredImage] = useState<string | null>(null);
       
       debug('Submitting with FormData...');
       
+      // Get Whop user info from SDK (for Safari/browsers that block third-party cookies)
+      const headers: HeadersInit = {};
+      if (user?.id) {
+        headers['X-Whop-User-Id'] = user.id;
+        debug('Adding Whop user ID to request:', user.id);
+      }
+      
       const response = await fetch(apiUrl, {
         method: 'POST',
         body: formData,
         mode: 'cors',
         credentials: 'include', // Include credentials so server can access Whop headers
+        headers,
       });
       
       debug('Response status:', response.status);
