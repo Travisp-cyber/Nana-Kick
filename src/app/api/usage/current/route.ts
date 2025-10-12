@@ -39,18 +39,36 @@ export async function GET(request: NextRequest) {
         'user-agent': request.headers.get('user-agent'),
       });
       
-      if (xWhopUserId && xWhopUserToken) {
-        // Headers are available, verify the token
+      if (xWhopUserToken) {
+        // JWT token is available, try to decode it to get user ID
         try {
+          // First try SDK verification
           const result = await whopSdk.verifyUserToken(request.headers);
           whopUserId = result.userId;
-          console.log('✅ Verified user from headers:', whopUserId);
+          console.log('✅ Verified user from SDK:', whopUserId);
         } catch (err) {
-          console.error('Failed to verify user token:', err);
-          // Try to use the header directly if verification fails
-          whopUserId = xWhopUserId;
-          console.log('⚠️ Using user ID from header directly:', whopUserId);
+          console.error('SDK verification failed, decoding JWT manually:', err);
+          
+          // Fallback: manually decode JWT to extract user ID
+          try {
+            // JWT format: header.payload.signature
+            const parts = xWhopUserToken.split('.');
+            if (parts.length === 3) {
+              const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+              whopUserId = payload.sub; // 'sub' field contains the user ID
+              console.log('✅ Extracted user ID from JWT:', whopUserId);
+            } else {
+              throw new Error('Invalid JWT format');
+            }
+          } catch (jwtErr) {
+            console.error('Failed to decode JWT:', jwtErr);
+            throw new Error('User authentication required');
+          }
         }
+      } else if (xWhopUserId) {
+        // Direct user ID available
+        whopUserId = xWhopUserId;
+        console.log('✅ Using direct user ID:', whopUserId);
       }
       
       // If we have a real user ID, check if admin and handle usage
