@@ -124,12 +124,15 @@ export async function POST(request: NextRequest) {
       // Check if admin or handle usage limits
       const adminList = (process.env.ADMIN_WHOP_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
       const agent = process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID;
-      const isAdmin = adminList.includes(whopUserId) || (agent && whopUserId === agent);
+      const isAdmin = whopUserId ? (adminList.includes(whopUserId) || (agent && whopUserId === agent)) : false;
       
       if (isAdmin) {
         console.log('👑 Admin user - unlimited access:', whopUserId);
       } else {
         // Check tier and usage for non-admin users
+        if (!whopUserId) {
+          throw new Error('User authentication required');
+        }
         const { hasAccess, tier, usage } = await getUserTierAndUsage(whopUserId);
         
         if (!hasAccess) {

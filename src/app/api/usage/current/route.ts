@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
       if (whopUserId) {
         const adminList = (process.env.ADMIN_WHOP_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
         const agent = process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID;
-        const isAdmin = adminList.includes(whopUserId) || (agent && whopUserId === agent);
+        const isAdmin = whopUserId ? (adminList.includes(whopUserId) || (agent && whopUserId === agent)) : false;
         
         if (isAdmin) {
           // Fetch actual usage from database for admin
