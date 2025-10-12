@@ -19,7 +19,7 @@ interface ExperiencePageProps {
 
 export default function ExperiencePage({ }: ExperiencePageProps) {
   // Whop SDK for authentication in iframe
-  const { user } = useIframeSdk();
+  const iframeSdk = useIframeSdk();
   
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -247,6 +247,16 @@ const [hoveredImage, setHoveredImage] = useState<string | null>(null);
     
     debug('Submitting form with instructions:', instructions.trim());
 
+    // Request storage access for Safari (allows cookies in iframe)
+    if (typeof document !== 'undefined' && 'requestStorageAccess' in document) {
+      try {
+        await (document as Document & { requestStorageAccess: () => Promise<void> }).requestStorageAccess();
+        debug('✅ Storage access granted (cookies enabled in iframe)');
+      } catch (err) {
+        console.warn('⚠️ Storage access denied or not needed:', err);
+      }
+    }
+
     // Call the process-image endpoint directly (it will check auth server-side)
     const apiUrl = getApiUrl('/api/process-image');
 
@@ -265,20 +275,13 @@ const [hoveredImage, setHoveredImage] = useState<string | null>(null);
       });
       
       debug('Submitting with FormData...');
-      
-      // Get Whop user info from SDK (for Safari/browsers that block third-party cookies)
-      const headers: HeadersInit = {};
-      if (user?.id) {
-        headers['X-Whop-User-Id'] = user.id;
-        debug('Adding Whop user ID to request:', user.id);
-      }
+      debug('IframeSdk available:', !!iframeSdk);
       
       const response = await fetch(apiUrl, {
         method: 'POST',
         body: formData,
         mode: 'cors',
         credentials: 'include', // Include credentials so server can access Whop headers
-        headers,
       });
       
       debug('Response status:', response.status);
