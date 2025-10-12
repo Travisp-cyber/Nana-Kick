@@ -17,6 +17,8 @@ An AI-powered image editing application built as a Whop app, allowing users to e
   - Discover page for app marketing
   - Seamless authentication
 - **Real-time Processing**: Instant image editing powered by Gemini 2.5 Flash
+- **Usage Tracking**: Tier-based generation limits with automated monthly resets
+- **Health Monitoring**: Built-in health check endpoint for system monitoring
 
 ## 🛠️ Tech Stack
 
@@ -184,14 +186,35 @@ In your Whop dashboard, configure these URLs:
 4. AI processes the image and returns the edited version
 5. Edited image is displayed with version history
 
+## 🚀 Ready to Launch?
+
+This app is production-ready! Follow these steps:
+
+1. **Complete Setup**: See [LAUNCH_GUIDE.md](./LAUNCH_GUIDE.md) for detailed testing and launch instructions
+2. **Generate CRON_SECRET**: Run `bash setup-cron-secret.sh` to generate your cron authentication secret
+3. **Test User Flow**: Follow Phase 1 in LAUNCH_GUIDE.md to test the complete purchase → usage flow
+4. **Deploy**: Push to Vercel and verify all environment variables are set
+5. **Publish**: Make your Whop app public!
+
+### New Features (Just Added!)
+
+- ✅ **Automated Monthly Usage Reset**: Vercel cron job resets user limits on the 1st of each month
+- ✅ **Health Check Endpoint**: `/api/health` for monitoring system status
+- ✅ **Production Ready**: Complete with error handling, logging, and monitoring
+
+### Quick Health Check
+
+Test your deployment:
+```bash
+curl https://your-app.vercel.app/api/health
+```
+
 ## 🔜 Coming Soon
 
-- **Supabase Integration**: Persistent storage for editing history
-- **Usage Limits**: Track and limit edits based on membership tier
-- **User Preferences**: Save custom presets and settings
 - **Analytics Dashboard**: View usage statistics and popular edits
 - **Batch Processing**: Edit multiple images at once
 - **Advanced Filters**: Pre-built editing templates
+- **Overage Billing**: Allow users to purchase additional generations beyond their tier limit
 
 ## 🤝 Contributing & Getting Help
 

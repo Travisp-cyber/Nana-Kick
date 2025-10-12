@@ -49,6 +49,14 @@ NEXT_PUBLIC_WHOP_AGENT_USER_ID="user_XXXXXXXX"
 ADMIN_WHOP_USER_IDS="user_XXXXXXXX,user_YYYYYYYY"
 ```
 
+### ⏰ Cron Job Configuration
+
+```bash
+# Secret for authenticating cron jobs (monthly usage reset)
+# Generate with: openssl rand -base64 32
+CRON_SECRET="your_generated_secret_here"
+```
+
 ### 🎟️ **Whop Access Pass IDs** (CRITICAL - for feature gating)
 
 These are what the app checks to see if a user has paid for access.
@@ -97,13 +105,26 @@ NEXT_PUBLIC_WHOP_CHECKOUT_BRAND_URL="https://whop.com/checkout/..."
 
 ## 🚨 What You MUST Add to .env.local
 
-Based on the code updates, you **must** add these Access Pass IDs to your `.env.local`:
+Based on the code updates, you **must** add these to your `.env.local`:
 
 ```bash
+# Access Pass IDs (Critical for access control)
 NEXT_PUBLIC_ACCESS_PASS_STARTER_ID="pass_XXXXXXXX"
 NEXT_PUBLIC_ACCESS_PASS_CREATOR_ID="pass_XXXXXXXX"
 NEXT_PUBLIC_ACCESS_PASS_PRO_ID="pass_XXXXXXXX"
 NEXT_PUBLIC_ACCESS_PASS_BRAND_ID="pass_XXXXXXXX"
+
+# Cron Secret (New! Required for monthly usage reset)
+CRON_SECRET="your_generated_secret_here"
+```
+
+**To generate CRON_SECRET:**
+```bash
+openssl rand -base64 32
+```
+Or run the helper script:
+```bash
+bash setup-cron-secret.sh
 ```
 
 ---
