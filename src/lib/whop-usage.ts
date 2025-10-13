@@ -103,9 +103,25 @@ export async function getUserTierAndUsage(whopUserId: string) {
       };
     }
     
-    // If user has exhausted free trial
+    // If user has exhausted free trial, still return usage data so UI can show "0 remaining"
     if (user && user.freeTrialUsed === 0 && user.hasClaimedFreeTrial) {
       console.log(`🚫 GET usage - Free trial exhausted for user: ${whopUserId}`);
+      return {
+        hasAccess: false,
+        tier: 'free-trial' as PlanTier,
+        usage: {
+          used: 10,
+          limit: 10,
+          remaining: 0,
+          resetDate: null,
+          overageUsed: 0,
+          overageCharges: 0,
+          overageCentsPerGen: 0,
+          lastBillingDate: null,
+          freeTrialUsed: 0,
+          hasClaimedFreeTrial: true,
+        }
+      };
     }
     
     // No access if no tier and no free trial
