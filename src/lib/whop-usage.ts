@@ -212,9 +212,39 @@ export async function incrementUsage(whopUserId: string): Promise<boolean> {
     }
 
     const limit = user.generationsLimit || 0;
+    const hasActiveSubscription = user.currentTier && limit > 0;
     
-    // Priority 1: Use free trial first if available
-    if (user.freeTrialUsed > 0) {
+    // Priority 1: If user has active subscription, use plan limit first
+    if (hasActiveSubscription) {
+      // Check if user is at or over their plan limit
+      if (user.generationsUsed >= limit) {
+        // User is in overage - charge per generation
+        const overageCents = getOverageCents((user.currentTier || 'starter') as PlanTier);
+        const overageCharge = overageCents / 100; // Convert cents to dollars
+        
+        await prisma.user.update({
+          where: { whopUserId },
+          data: {
+            overageUsed: { increment: 1 },
+            overageCharges: { increment: overageCharge },
+          }
+        });
+        
+        console.log(`📊 Overage usage incremented for ${whopUserId}: +$${overageCharge.toFixed(2)} (total: ${user.overageUsed + 1} extra gens)`);
+      } else {
+        // Normal usage within plan limit
+        await prisma.user.update({
+          where: { whopUserId },
+          data: {
+            generationsUsed: { increment: 1 },
+          }
+        });
+        
+        console.log(`📊 Usage incremented for ${whopUserId}: ${user.generationsUsed + 1}/${limit}`);
+      }
+    }
+    // Priority 2: If no active subscription, use free trial
+    else if (user.freeTrialUsed > 0) {
       await prisma.user.update({
         where: { whopUserId },
         data: {
@@ -224,34 +254,11 @@ export async function incrementUsage(whopUserId: string): Promise<boolean> {
       });
       
       console.log(`🎁 Free trial usage: ${10 - user.freeTrialUsed + 1}/10 used (${user.freeTrialUsed - 1} remaining)`);
-      return true;
     }
-    
-    // Priority 2: Check if user is at or over their plan limit
-    if (user.generationsUsed >= limit) {
-      // User is in overage - charge per generation
-      const overageCents = getOverageCents((user.currentTier || 'starter') as PlanTier);
-      const overageCharge = overageCents / 100; // Convert cents to dollars
-      
-      await prisma.user.update({
-        where: { whopUserId },
-        data: {
-          overageUsed: { increment: 1 },
-          overageCharges: { increment: overageCharge },
-        }
-      });
-      
-      console.log(`📊 Overage usage incremented for ${whopUserId}: +$${overageCharge.toFixed(2)} (total: ${user.overageUsed + 1} extra gens)`);
-    } else {
-      // Priority 3: Normal usage within plan limit
-      await prisma.user.update({
-        where: { whopUserId },
-        data: {
-          generationsUsed: { increment: 1 },
-        }
-      });
-      
-      console.log(`📊 Usage incremented for ${whopUserId}: ${user.generationsUsed + 1}/${limit}`);
+    // Priority 3: No subscription and no free trial (shouldn't reach here if access check works)
+    else {
+      console.error(`❌ User has no subscription and no free trial: ${whopUserId}`);
+      return false;
     }
     
     return true;
