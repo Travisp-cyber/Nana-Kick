@@ -54,6 +54,32 @@ export async function getUserTierAndUsage(whopUserId: string) {
   const agent = process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID;
   const isAdmin = adminList.includes(whopUserId) || (agent && whopUserId === agent);
   
+  // If user doesn't exist and has no tier, create them with free trial
+  if (!user && !userTier && !isAdmin) {
+    console.log(`🆕 Creating new free trial user: ${whopUserId}`);
+    user = await prisma.user.create({
+      data: {
+        whopUserId,
+        freeTrialUsed: 10,
+        hasClaimedFreeTrial: false,
+        generationsUsed: 0,
+      },
+      select: {
+        id: true,
+        whopUserId: true,
+        currentTier: true,
+        generationsUsed: true,
+        generationsLimit: true,
+        usageResetDate: true,
+        overageUsed: true,
+        overageCharges: true,
+        lastBillingDate: true,
+        freeTrialUsed: true,
+        hasClaimedFreeTrial: true,
+      }
+    });
+  }
+  
   // Check for free trial access if no paid subscription
   if (!userTier && !isAdmin) {
     // If user exists and has free trial remaining, grant access
