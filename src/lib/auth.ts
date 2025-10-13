@@ -350,7 +350,26 @@ export async function requireMemberOrAdmin() {
 
   // Fallback to local database subscription check
   const hasSub = await hasActiveSubscription(session.userId);
-  return { allowed: hasSub, reason: hasSub ? 'member' : 'no_subscription', session } as const;
+  if (hasSub) {
+    return { allowed: true, reason: 'member', session } as const;
+  }
+  
+  // Check for free trial (if no subscription)
+  try {
+    const user = await prisma.user.findUnique({
+      where: { whopUserId: session.userId },
+      select: { freeTrialUsed: true }
+    });
+    
+    if (user && user.freeTrialUsed > 0) {
+      console.log('✅ User has free trial:', user.freeTrialUsed, 'remaining');
+      return { allowed: true, reason: 'free_trial', session } as const;
+    }
+  } catch (error) {
+    console.error('Error checking free trial:', error);
+  }
+  
+  return { allowed: false, reason: 'no_subscription', session } as const;
 }
 
 // Check if user has any valid access pass
