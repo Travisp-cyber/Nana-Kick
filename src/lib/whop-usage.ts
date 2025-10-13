@@ -96,6 +96,8 @@ export async function getUserTierAndUsage(whopUserId: string) {
           overageCharges: 0,
           overageCentsPerGen: 0,
           lastBillingDate: null,
+          freeTrialUsed: user.freeTrialUsed,
+          hasClaimedFreeTrial: user.hasClaimedFreeTrial,
         }
       };
     }
