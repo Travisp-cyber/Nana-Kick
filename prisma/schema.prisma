@@ -19,6 +19,10 @@ model User {
   planId             String?
   currentPeriodEnd   DateTime?
   
+  // Free trial fields
+  freeTrialUsed      Int            @default(10)    // Remaining free generations (starts at 10)
+  hasClaimedFreeTrial Boolean       @default(false) // One-time flag
+  
   // Usage tracking fields
   currentTier        String?        // "starter" | "creator" | "brand" | "pro"
   generationsUsed    Int            @default(0)

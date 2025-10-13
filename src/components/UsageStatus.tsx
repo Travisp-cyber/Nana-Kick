@@ -13,6 +13,9 @@ export function UsageStatus({ memberId: propMemberId }: { memberId?: string }) {
     overage_cents: number
     overage_used: number
     overage_charges: number
+    free_trial_used: number
+    has_claimed_free_trial: boolean
+    is_free_trial_active: boolean
   } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -58,6 +61,9 @@ export function UsageStatus({ memberId: propMemberId }: { memberId?: string }) {
               overage_cents: json.usage.overageCentsPerGen || 0,
               overage_used: json.usage.overageUsed || 0,
               overage_charges: json.usage.overageCharges || 0,
+              free_trial_used: json.usage.freeTrialUsed ?? 0,
+              has_claimed_free_trial: json.usage.hasClaimedFreeTrial ?? false,
+              is_free_trial_active: json.tier === 'free-trial',
             })
           }
         }
@@ -155,13 +161,21 @@ export function UsageStatus({ memberId: propMemberId }: { memberId?: string }) {
   const overageCents = data?.overage_cents ?? 0
   const overageUsed = data?.overage_used ?? 0
   const overageCharges = data?.overage_charges ?? 0
+  const freeTrialUsed = data?.free_trial_used ?? 0
+  const isFreeTrialActive = data?.is_free_trial_active ?? false
   const pct = Math.min(Math.round((used / total) * 100), 100)
   
-  // Display plan with admin indicator
-  const planDisplay = authStatus?.isAdmin ? `${plan} (admin)` : `${plan} plan`
+  // Display plan with admin indicator or free trial
+  let planDisplay = authStatus?.isAdmin ? `${plan} (admin)` : `${plan} plan`
+  if (isFreeTrialActive) {
+    planDisplay = 'Free Trial'
+  }
   
   // Check if user is in overage
   const isInOverage = used >= total && overageUsed > 0
+  
+  // Check if free trial is low
+  const isFreeTrialLow = isFreeTrialActive && freeTrialUsed <= 3 && freeTrialUsed > 0
 
   return (
     <div className="flex items-center gap-4 bg-white/80 backdrop-blur px-4 py-2 rounded-xl shadow border border-black/5">
@@ -170,19 +184,26 @@ export function UsageStatus({ memberId: propMemberId }: { memberId?: string }) {
         <div className="flex items-center gap-3">
           <div className="w-44 h-2 bg-gray-200 rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-orange-500 to-yellow-500"
+              className={`h-full ${isFreeTrialActive ? 'bg-gradient-to-r from-blue-500 to-purple-500' : 'bg-gradient-to-r from-orange-500 to-yellow-500'}`}
               style={{ width: `${pct}%` }}
             />
           </div>
           <div className="text-sm text-gray-800 font-medium">
-            {isInOverage ? (
+            {isFreeTrialActive ? (
+              <span>{freeTrialUsed} remaining</span>
+            ) : isInOverage ? (
               <span>{total}/{total} + {overageUsed} extra (${overageCharges.toFixed(2)})</span>
             ) : (
               <span>{used}/{total} remaining</span>
             )}
           </div>
         </div>
-        {used >= total && !isInOverage && (
+        {isFreeTrialLow && (
+          <div className="text-xs text-orange-600 mt-1 font-medium">
+            ⚠️ Only {freeTrialUsed} free generations left - Upgrade for more!
+          </div>
+        )}
+        {!isFreeTrialActive && used >= total && !isInOverage && (
           <div className="text-xs text-orange-600 mt-1 font-medium">
             ⚠️ At limit - Extra: ${(overageCents/100).toFixed(2)}/gen
           </div>

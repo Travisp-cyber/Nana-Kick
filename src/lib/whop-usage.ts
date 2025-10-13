@@ -16,6 +16,8 @@ export async function getUserTierAndUsage(whopUserId: string) {
       overageUsed: true,
       overageCharges: true,
       lastBillingDate: true,
+      freeTrialUsed: true,
+      hasClaimedFreeTrial: true,
     }
   });
 
@@ -52,7 +54,27 @@ export async function getUserTierAndUsage(whopUserId: string) {
   const agent = process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID;
   const isAdmin = adminList.includes(whopUserId) || (agent && whopUserId === agent);
   
+  // Check for free trial access if no paid subscription
   if (!userTier && !isAdmin) {
+    // If user exists and has free trial remaining, grant access
+    if (user && user.freeTrialUsed > 0) {
+      return {
+        hasAccess: true,
+        tier: 'free-trial' as PlanTier,
+        usage: {
+          used: 10 - user.freeTrialUsed,
+          limit: 10,
+          remaining: user.freeTrialUsed,
+          resetDate: null,
+          overageUsed: 0,
+          overageCharges: 0,
+          overageCentsPerGen: 0,
+          lastBillingDate: null,
+        }
+      };
+    }
+    
+    // No access if no tier and no free trial
     return { hasAccess: false, tier: null, usage: null };
   }
   
@@ -76,6 +98,8 @@ export async function getUserTierAndUsage(whopUserId: string) {
         usageResetDate: nextMonth,
         overageUsed: 0,
         overageCharges: 0,
+        freeTrialUsed: 10,
+        hasClaimedFreeTrial: false,
       },
       select: {
         id: true,
@@ -87,6 +111,8 @@ export async function getUserTierAndUsage(whopUserId: string) {
         overageUsed: true,
         overageCharges: true,
         lastBillingDate: true,
+        freeTrialUsed: true,
+        hasClaimedFreeTrial: true,
       }
     });
   } else {
@@ -113,6 +139,8 @@ export async function getUserTierAndUsage(whopUserId: string) {
           overageUsed: true,
           overageCharges: true,
           lastBillingDate: true,
+          freeTrialUsed: true,
+          hasClaimedFreeTrial: true,
         }
       });
     }
@@ -135,6 +163,8 @@ export async function getUserTierAndUsage(whopUserId: string) {
           overageUsed: true,
           overageCharges: true,
           lastBillingDate: true,
+          freeTrialUsed: true,
+          hasClaimedFreeTrial: true,
         }
       });
     }
@@ -154,6 +184,8 @@ export async function getUserTierAndUsage(whopUserId: string) {
       overageCharges: user.overageCharges,
       overageCentsPerGen: overageCentsPerGen,
       lastBillingDate: user.lastBillingDate,
+      freeTrialUsed: user.freeTrialUsed,
+      hasClaimedFreeTrial: user.hasClaimedFreeTrial,
     }
   };
 }
@@ -169,6 +201,8 @@ export async function incrementUsage(whopUserId: string): Promise<boolean> {
         currentTier: true,
         overageUsed: true,
         overageCharges: true,
+        freeTrialUsed: true,
+        hasClaimedFreeTrial: true,
       }
     });
 
@@ -179,7 +213,21 @@ export async function incrementUsage(whopUserId: string): Promise<boolean> {
 
     const limit = user.generationsLimit || 0;
     
-    // Check if user is at or over their limit
+    // Priority 1: Use free trial first if available
+    if (user.freeTrialUsed > 0) {
+      await prisma.user.update({
+        where: { whopUserId },
+        data: {
+          freeTrialUsed: { decrement: 1 },
+          hasClaimedFreeTrial: true,
+        }
+      });
+      
+      console.log(`🎁 Free trial usage: ${10 - user.freeTrialUsed + 1}/10 used (${user.freeTrialUsed - 1} remaining)`);
+      return true;
+    }
+    
+    // Priority 2: Check if user is at or over their plan limit
     if (user.generationsUsed >= limit) {
       // User is in overage - charge per generation
       const overageCents = getOverageCents((user.currentTier || 'starter') as PlanTier);
@@ -195,7 +243,7 @@ export async function incrementUsage(whopUserId: string): Promise<boolean> {
       
       console.log(`📊 Overage usage incremented for ${whopUserId}: +$${overageCharge.toFixed(2)} (total: ${user.overageUsed + 1} extra gens)`);
     } else {
-      // Normal usage within limit
+      // Priority 3: Normal usage within plan limit
       await prisma.user.update({
         where: { whopUserId },
         data: {

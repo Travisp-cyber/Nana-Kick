@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { whopSdk } from '@/lib/whop-sdk';
 import { getUserTierAndUsage, incrementUsage } from '@/lib/whop-usage';
+import { prisma } from '@/lib/prisma';
 
 // Configure the API route
 export const runtime = 'nodejs';
@@ -140,16 +141,38 @@ export async function POST(request: NextRequest) {
         
         if (!hasAccess) {
           console.log('❌ User has no access pass:', whopUserId);
-    return NextResponse.json(
+          
+          // Check if free trial was exhausted
+          const user = await prisma.user.findUnique({
+            where: { whopUserId },
+            select: { freeTrialUsed: true }
+          });
+          
+          if (user && user.freeTrialUsed === 0) {
+            console.log('🚫 Free trial exhausted for user:', whopUserId);
+            return NextResponse.json(
+              { 
+                error: 'Free trial exhausted',
+                message: 'You used all of your free credits. To keep editing, upgrade to one of our plans.',
+                isPremiumFeature: true,
+                redirectTo: '/plans',
+                showUpgradePrompt: true
+              },
+              { status: 403, headers: corsHeaders }
+            );
+          }
+          
+          // No subscription and no free trial
+          return NextResponse.json(
             { 
               error: 'No access',
               message: 'You need to purchase an access pass to use this feature.',
               isPremiumFeature: true,
               redirectTo: '/plans'
             },
-      { status: 403, headers: corsHeaders }
-    );
-  }
+            { status: 403, headers: corsHeaders }
+          );
+        }
   
         // Check if user is at or over their limit - warn about overage charges
         if (usage && usage.used >= usage.limit) {

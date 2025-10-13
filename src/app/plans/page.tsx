@@ -2,17 +2,42 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useState, useMemo } from 'react';
+import { useCallback, useState, useMemo, useEffect } from 'react';
 import { useIframeSdk } from '@whop/react';
 
 export default function PlansPage() {
   const router = useRouter();
   const iframeSdk = useIframeSdk();
   const [error, setError] = useState<string | null>(null);
+  const [freeTrialInfo, setFreeTrialInfo] = useState<{ remaining: number; isActive: boolean } | null>(null);
 
   const isEmbedded = useMemo(() => {
     if (typeof window === 'undefined') return false;
     return window.parent !== window;
+  }, []);
+
+  // Fetch free trial status
+  useEffect(() => {
+    async function checkFreeTrial() {
+      try {
+        const res = await fetch('/api/usage/current', { cache: 'no-store' });
+        const json = await res.json();
+        if (json?.usage && json.tier === 'free-trial') {
+          setFreeTrialInfo({
+            remaining: json.usage.freeTrialUsed || 0,
+            isActive: true
+          });
+        } else if (json?.usage?.freeTrialUsed === 0 && json?.usage?.hasClaimedFreeTrial) {
+          setFreeTrialInfo({
+            remaining: 0,
+            isActive: false
+          });
+        }
+      } catch (err) {
+        console.error('Failed to check free trial:', err);
+      }
+    }
+    checkFreeTrial();
   }, []);
 
   // Open Whop checkout in a centered popup window. Fallback to a normal navigation
@@ -112,6 +137,24 @@ export default function PlansPage() {
           <h2 className="text-4xl md:text-5xl font-bold mb-3">Your words. Your vision. Instantly edited</h2>
           <p className="text-gray-400">Choose the perfect plan to power your AI image generation</p>
         </div>
+
+        {/* Free trial banner */}
+        {freeTrialInfo && freeTrialInfo.isActive && (
+          <div className="mb-8 p-4 bg-blue-900/30 border border-blue-500/50 rounded-xl text-center">
+            <p className="text-blue-300">
+              🎁 <strong>Free Trial Active:</strong> You have {freeTrialInfo.remaining} free generations remaining
+            </p>
+            <p className="text-sm text-blue-400 mt-1">Upgrade to unlock more generations and keep your work going!</p>
+          </div>
+        )}
+        {freeTrialInfo && !freeTrialInfo.isActive && freeTrialInfo.remaining === 0 && (
+          <div className="mb-8 p-4 bg-orange-900/30 border border-orange-500/50 rounded-xl text-center">
+            <p className="text-orange-300">
+              ⚠️ <strong>Free Trial Used:</strong> You&apos;ve used all your free credits
+            </p>
+            <p className="text-sm text-orange-400 mt-1">Choose a plan below to continue editing!</p>
+          </div>
+        )}
 
         {/* Pricing grid */}
         <div className="grid md:grid-cols-4 gap-6">
