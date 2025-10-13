@@ -314,15 +314,15 @@ const [hoveredImage, setHoveredImage] = useState<string | null>(null);
           setInstructions(''); // Clear instructions for next edit
           debug('Image edited and updated');
           
-          // Refresh usage status immediately and after a short delay to ensure backend has updated
+          // Refresh usage status multiple times to ensure counter updates to 0
           if (typeof window !== 'undefined') {
             const windowWithRefresh = window as Window & { refreshUsageStatus?: () => void };
             // Immediate refresh
             windowWithRefresh.refreshUsageStatus?.();
-            // Delayed refresh to catch any async updates
-            setTimeout(() => {
-              windowWithRefresh.refreshUsageStatus?.();
-            }, 1000);
+            // Multiple delayed refreshes to catch async database updates
+            setTimeout(() => windowWithRefresh.refreshUsageStatus?.(), 500);
+            setTimeout(() => windowWithRefresh.refreshUsageStatus?.(), 1500);
+            setTimeout(() => windowWithRefresh.refreshUsageStatus?.(), 2500);
           }
         } else {
           // It's a JSON response (error or info)

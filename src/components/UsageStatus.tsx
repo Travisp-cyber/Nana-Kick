@@ -41,7 +41,15 @@ export function UsageStatus({ memberId: propMemberId }: { memberId?: string }) {
     let cancelled = false
     async function checkAuth() {
       try {
-        const res = await fetch('/api/usage/current', { cache: 'no-store' })
+        // Add cache-busting timestamp to force fresh data
+        const cacheBuster = Date.now()
+        const res = await fetch(`/api/usage/current?t=${cacheBuster}`, { 
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          }
+        })
         const json = await res.json()
         if (!cancelled) {
           setAuthStatus({
