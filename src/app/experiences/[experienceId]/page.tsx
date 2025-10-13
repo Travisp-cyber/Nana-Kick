@@ -314,10 +314,15 @@ const [hoveredImage, setHoveredImage] = useState<string | null>(null);
           setInstructions(''); // Clear instructions for next edit
           debug('Image edited and updated');
           
-          // Refresh usage status
+          // Refresh usage status immediately and after a short delay to ensure backend has updated
           if (typeof window !== 'undefined') {
             const windowWithRefresh = window as Window & { refreshUsageStatus?: () => void };
+            // Immediate refresh
             windowWithRefresh.refreshUsageStatus?.();
+            // Delayed refresh to catch any async updates
+            setTimeout(() => {
+              windowWithRefresh.refreshUsageStatus?.();
+            }, 1000);
           }
         } else {
           // It's a JSON response (error or info)
@@ -336,13 +341,13 @@ const [hoveredImage, setHoveredImage] = useState<string | null>(null);
         const result = await response.json();
         console.error('API Error:', result);
         
-        // Check if it's an access pass required error
-        if (response.status === 403 && result.redirectTo) {
-          setError(`${result.message || 'Access pass required'}`);
-          // Show a dialog to redirect to plans page
-          if (confirm(`${result.message}\n\nWould you like to view available plans?`)) {
-            window.location.href = result.redirectTo;
-          }
+        // Check if it's a free trial exhausted or access pass required error
+        if (response.status === 403) {
+          // Set error message but DON'T redirect - keep user on page with their work
+          setError(result.message || result.error || 'Access pass required');
+          
+          // Don't show alert for free trial exhaustion - just show the error banner
+          // User can still see their edit history and download images
         } else {
           setError(`API Error: ${result.error}`);
           alert(`API Error: ${result.error}\n${result.message || ''}`);
@@ -481,9 +486,28 @@ const [hoveredImage, setHoveredImage] = useState<string | null>(null);
             
             <form onSubmit={handleSubmit} className="w-full max-w-3xl space-y-4">
               {error && (
-                <div className="bg-orange-50 border border-orange-200 text-orange-800 px-4 py-3 rounded-lg mb-4">
-                  <p className="font-semibold">Error:</p>
-                  <p className="text-sm">{error}</p>
+                <div className="bg-orange-50 border-2 border-orange-400 text-orange-900 px-6 py-4 rounded-xl mb-4 shadow-lg">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <p className="font-bold text-lg mb-2">🎉 {error.includes('free') ? 'Free Trial Complete!' : 'Upgrade Required'}</p>
+                      <p className="text-sm mb-3">{error}</p>
+                      <div className="flex gap-3">
+                        <a 
+                          href="/plans" 
+                          className="inline-block px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium transition-colors"
+                        >
+                          View Plans
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => setError(null)}
+                          className="px-4 py-2 bg-white hover:bg-gray-100 text-orange-800 border border-orange-300 rounded-lg font-medium transition-colors"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
               <div>
