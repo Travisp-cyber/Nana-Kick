@@ -10,6 +10,7 @@ An AI-powered image editing application built as a Whop app, allowing users to e
 ## 🚀 Features
 
 - **AI-Powered Image Editing**: Edit images using natural language prompts (e.g., "make the jersey blue", "add a sunset background")
+- **10 Free Generations**: New users get 10 free AI edits to try before purchasing
 - **Drag & Drop Upload**: Easy image upload with drag-and-drop interface
 - **Version History**: Track all edits with visual history sidebar
 - **Whop Integration**: Full integration with Whop's monetization platform
@@ -17,7 +18,8 @@ An AI-powered image editing application built as a Whop app, allowing users to e
   - Discover page for app marketing
   - Seamless authentication
 - **Real-time Processing**: Instant image editing powered by Gemini 2.5 Flash
-- **Usage Tracking**: Tier-based generation limits with automated monthly resets
+- **Usage Tracking**: Tier-based generation limits with automated daily resets
+- **Overage Pricing**: Automatic per-generation charges when users exceed their plan limits
 - **Health Monitoring**: Built-in health check endpoint for system monitoring
 
 ## 🛠️ Tech Stack
