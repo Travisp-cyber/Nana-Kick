@@ -84,6 +84,7 @@ export async function getUserTierAndUsage(whopUserId: string) {
   if (!userTier && !isAdmin) {
     // If user exists and has free trial remaining, grant access
     if (user && user.freeTrialUsed > 0) {
+      console.log(`📊 GET usage - Free trial active: ${user.freeTrialUsed} remaining`);
       return {
         hasAccess: true,
         tier: 'free-trial' as PlanTier,
@@ -100,6 +101,11 @@ export async function getUserTierAndUsage(whopUserId: string) {
           hasClaimedFreeTrial: user.hasClaimedFreeTrial,
         }
       };
+    }
+    
+    // If user has exhausted free trial
+    if (user && user.freeTrialUsed === 0 && user.hasClaimedFreeTrial) {
+      console.log(`🚫 GET usage - Free trial exhausted for user: ${whopUserId}`);
     }
     
     // No access if no tier and no free trial
@@ -273,14 +279,20 @@ export async function incrementUsage(whopUserId: string): Promise<boolean> {
     }
     // Priority 2: If no active subscription, use free trial
     else if (user.freeTrialUsed > 0) {
-      await prisma.user.update({
+      console.log(`🔄 BEFORE decrement: freeTrialUsed = ${user.freeTrialUsed}`);
+      
+      const updated = await prisma.user.update({
         where: { whopUserId },
         data: {
           freeTrialUsed: { decrement: 1 },
           hasClaimedFreeTrial: true,
+        },
+        select: {
+          freeTrialUsed: true,
         }
       });
       
+      console.log(`✅ AFTER decrement: freeTrialUsed = ${updated.freeTrialUsed}`);
       console.log(`🎁 Free trial usage: ${10 - user.freeTrialUsed + 1}/10 used (${user.freeTrialUsed - 1} remaining)`);
     }
     // Priority 3: No subscription and no free trial (shouldn't reach here if access check works)

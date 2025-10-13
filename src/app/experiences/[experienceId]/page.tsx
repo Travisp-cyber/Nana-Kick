@@ -315,14 +315,15 @@ const [hoveredImage, setHoveredImage] = useState<string | null>(null);
           debug('Image edited and updated');
           
           // Refresh usage status multiple times to ensure counter updates to 0
+          // Use delays to allow database transaction to fully commit
           if (typeof window !== 'undefined') {
             const windowWithRefresh = window as Window & { refreshUsageStatus?: () => void };
-            // Immediate refresh
-            windowWithRefresh.refreshUsageStatus?.();
-            // Multiple delayed refreshes to catch async database updates
-            setTimeout(() => windowWithRefresh.refreshUsageStatus?.(), 500);
+            // Give DB time to commit, then refresh multiple times
+            setTimeout(() => windowWithRefresh.refreshUsageStatus?.(), 300);
+            setTimeout(() => windowWithRefresh.refreshUsageStatus?.(), 800);
             setTimeout(() => windowWithRefresh.refreshUsageStatus?.(), 1500);
             setTimeout(() => windowWithRefresh.refreshUsageStatus?.(), 2500);
+            setTimeout(() => windowWithRefresh.refreshUsageStatus?.(), 4000);
           }
         } else {
           // It's a JSON response (error or info)
@@ -486,22 +487,39 @@ const [hoveredImage, setHoveredImage] = useState<string | null>(null);
             
             <form onSubmit={handleSubmit} className="w-full max-w-3xl space-y-4">
               {error && (
-                <div className="bg-orange-50 border-2 border-orange-400 text-orange-900 px-6 py-4 rounded-xl mb-4 shadow-lg">
+                <div className={`border-2 px-6 py-4 rounded-xl mb-4 shadow-lg ${
+                  error.includes('Network') || error.includes('CORS') || error.includes('failed')
+                    ? 'bg-red-50 border-red-400 text-red-900'
+                    : 'bg-orange-50 border-orange-400 text-orange-900'
+                }`}>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <p className="font-bold text-lg mb-2">🎉 {error.includes('free') ? 'Free Trial Complete!' : 'Upgrade Required'}</p>
+                      <p className="font-bold text-lg mb-2">
+                        {error.includes('Network') || error.includes('CORS') || error.includes('failed')
+                          ? '❌ Network Error'
+                          : error.includes('free') 
+                            ? '🎉 Free Trial Complete!' 
+                            : '🎉 Upgrade Required'
+                        }
+                      </p>
                       <p className="text-sm mb-3">{error}</p>
                       <div className="flex gap-3">
-                        <a 
-                          href="/plans" 
-                          className="inline-block px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium transition-colors"
-                        >
-                          View Plans
-                        </a>
+                        {!(error.includes('Network') || error.includes('CORS') || error.includes('failed')) && (
+                          <a 
+                            href="/plans" 
+                            className="inline-block px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium transition-colors"
+                          >
+                            View Plans
+                          </a>
+                        )}
                         <button
                           type="button"
                           onClick={() => setError(null)}
-                          className="px-4 py-2 bg-white hover:bg-gray-100 text-orange-800 border border-orange-300 rounded-lg font-medium transition-colors"
+                          className={`px-4 py-2 bg-white hover:bg-gray-100 border rounded-lg font-medium transition-colors ${
+                            error.includes('Network') || error.includes('CORS') || error.includes('failed')
+                              ? 'text-red-800 border-red-300'
+                              : 'text-orange-800 border-orange-300'
+                          }`}
                         >
                           Dismiss
                         </button>

@@ -61,6 +61,11 @@ export function UsageStatus({ memberId: propMemberId }: { memberId?: string }) {
           
           // If we have usage data, set it
           if (json?.usage) {
+            // Log the received data for debugging
+            if (json.tier === 'free-trial') {
+              console.log(`🔍 UsageStatus received: freeTrialUsed=${json.usage.freeTrialUsed}, tier=${json.tier}`);
+            }
+            
             setData({
               plan: json.tier || 'unknown',
               pool_limit: json.usage.limit || 0,
