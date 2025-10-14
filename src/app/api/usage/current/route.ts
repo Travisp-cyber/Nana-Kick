@@ -92,11 +92,15 @@ export async function GET(request: NextRequest) {
         
         const result = await getUserTierAndUsage(whopUserId);
         
+        // Even if user doesn't have access (exhausted free trial), return usage data so UI can show "0 remaining"
         if (!result.hasAccess) {
-          return NextResponse.json(
-            { hasAccess: false, message: 'No active subscription' },
-            { status: 200 }
-          );
+          return NextResponse.json({
+            hasAccess: false,
+            isAdmin: false,
+            tier: result.tier,
+            usage: result.usage,
+            message: 'No active subscription'
+          }, { status: 200 });
         }
         
         return NextResponse.json({
