@@ -288,8 +288,9 @@ export async function POST(request: NextRequest) {
       console.error('❌ Image processing failed:', error);
       return NextResponse.json(
         { 
-          error: 'Processing failed', 
-          message: error instanceof Error ? error.message : 'Image processing took too long. Please try again with a simpler request.',
+          error: 'AI processing timeout', 
+          message: 'The AI took too long to process your image. Please try again with a simpler edit or smaller image.',
+          isTemporaryError: true,
           details: process.env.NODE_ENV === 'development' ? error : undefined
         },
         { status: 408, headers: corsHeaders }
@@ -302,7 +303,11 @@ export async function POST(request: NextRequest) {
     if (!candidate) {
       console.error('❌ No response candidate from Gemini');
       return NextResponse.json(
-        { error: 'Processing failed', message: 'AI model did not return a valid response. Please try again.' },
+        { 
+          error: 'AI model error', 
+          message: 'The AI model did not return a valid response. Please try again with a different edit.',
+          isTemporaryError: true
+        },
         { status: 500, headers: corsHeaders }
       );
     }
@@ -350,7 +355,11 @@ export async function POST(request: NextRequest) {
     console.error('Error processing image:', error);
     const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { error: `Failed to process request: ${message}` },
+      { 
+        error: 'Server error', 
+        message: `Unable to process your request: ${message}`,
+        isTemporaryError: true
+      },
       { status: 500, headers: corsHeaders }
     );
   }

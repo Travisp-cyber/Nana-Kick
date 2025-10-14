@@ -488,23 +488,29 @@ const [hoveredImage, setHoveredImage] = useState<string | null>(null);
             <form onSubmit={handleSubmit} className="w-full max-w-3xl space-y-4">
               {error && (
                 <div className={`border-2 px-6 py-4 rounded-xl mb-4 shadow-lg ${
-                  error.includes('Network') || error.includes('CORS') || error.includes('failed')
-                    ? 'bg-red-50 border-red-400 text-red-900'
-                    : 'bg-orange-50 border-orange-400 text-orange-900'
+                  // Check if it's an access/subscription issue (upgrade prompt)
+                  (error.includes('free') || error.includes('access') || error.includes('subscription') || error.includes('credits'))
+                    ? 'bg-orange-50 border-orange-400 text-orange-900'
+                    : 'bg-red-50 border-red-400 text-red-900'  // All other errors (network, API, etc.)
                 }`}>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <p className="font-bold text-lg mb-2">
-                        {error.includes('Network') || error.includes('CORS') || error.includes('failed')
-                          ? '❌ Network Error'
-                          : error.includes('free') 
-                            ? '🎉 Free Trial Complete!' 
-                            : '🎉 Upgrade Required'
+                        {error.includes('free') 
+                          ? '🎉 Free Trial Complete!' 
+                          : (error.includes('access') || error.includes('subscription') || error.includes('credits'))
+                            ? '🎉 Upgrade Required'
+                            : error.includes('Network') || error.includes('CORS')
+                              ? '❌ Network Error'
+                              : error.includes('API')
+                                ? '⚠️ API Error'
+                                : '❌ Error'
                         }
                       </p>
                       <p className="text-sm mb-3">{error}</p>
                       <div className="flex gap-3">
-                        {!(error.includes('Network') || error.includes('CORS') || error.includes('failed')) && (
+                        {/* Only show upgrade button for access/subscription issues */}
+                        {(error.includes('free') || error.includes('access') || error.includes('subscription') || error.includes('credits')) && (
                           <a 
                             href="/plans" 
                             className="inline-block px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium transition-colors"
@@ -516,9 +522,9 @@ const [hoveredImage, setHoveredImage] = useState<string | null>(null);
                           type="button"
                           onClick={() => setError(null)}
                           className={`px-4 py-2 bg-white hover:bg-gray-100 border rounded-lg font-medium transition-colors ${
-                            error.includes('Network') || error.includes('CORS') || error.includes('failed')
-                              ? 'text-red-800 border-red-300'
-                              : 'text-orange-800 border-orange-300'
+                            (error.includes('free') || error.includes('access') || error.includes('subscription') || error.includes('credits'))
+                              ? 'text-orange-800 border-orange-300'
+                              : 'text-red-800 border-red-300'
                           }`}
                         >
                           Dismiss
