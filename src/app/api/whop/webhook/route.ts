@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { fetchWhopMembership, getRenewalDate, verifyWhopSignature } from '@/lib/whop-integration'
+import { fetchWhopMembership, fetchWhopUser, getRenewalDate, verifyWhopSignature } from '@/lib/whop-integration'
 import { getPoolLimit, normalizeTier } from '@/lib/subscription/plans'
 
 /**
@@ -33,10 +33,22 @@ export async function POST(req: NextRequest) {
   }
   const event = String((getProp(body, ['event']) || getProp(body, ['type']) || getProp(body, ['action']) || '') as string)
   const membershipId = (getProp(body, ['membership_id']) || getProp(body, ['data','membership_id']) || getProp(body, ['membership','id'])) as string | undefined
+  const userId = (getProp(body, ['user_id']) || getProp(body, ['data','user_id'])) as string | undefined
   const planName = (getProp(body, ['plan','name']) || getProp(body, ['data','plan','name']) || getProp(body, ['product','name'])) as string | undefined
+  const paymentAmount = (getProp(body, ['final_amount']) || getProp(body, ['data','final_amount']) || getProp(body, ['amount'])) as number | undefined
 
   // Figure out the tier + limits
   const tier = normalizeTier(planName || '')
+  
+  // Log payment details for debugging
+  console.log('[Whop Webhook] Payment details:', {
+    event,
+    membershipId,
+    userId,
+    planName,
+    paymentAmount,
+    tier,
+  })
 
   try {
     // For most updates we need the latest membership state
@@ -65,11 +77,35 @@ export async function POST(req: NextRequest) {
       const resolvedTier = tier || (membership ? normalizeTier(membership.plan?.name || membership.product?.name || '') : null)
       const poolLimit = resolvedTier ? getPoolLimit(resolvedTier) : undefined
 
-      // Extract email from membership
-      const email = (membership as any)?.email || (membership as any)?.user?.email
+      // Extract email and whopUserId from multiple sources
+      let email = (membership as any)?.email || (membership as any)?.user?.email
+      let whopUserId = userId || (membership as any)?.user?.id
+      
+      // If email is still missing, try to fetch user data from Whop API
+      if (!email && whopUserId) {
+        console.log(`📞 Fetching user data from Whop API for userId: ${whopUserId}`)
+        const whopUser = await fetchWhopUser(whopUserId)
+        if (whopUser?.email) {
+          email = whopUser.email
+          console.log(`✅ Found email from Whop API: ${email}`)
+        }
+      }
+      
+      // Use membershipId as fallback for whopUserId if all else fails
+      if (!whopUserId) {
+        whopUserId = membershipId
+        console.log(`⚠️ Using membershipId as whopUserId fallback: ${whopUserId}`)
+      }
+      
+      // If still no email, create a placeholder email
       if (!email) {
-        console.warn('Webhook renewal/upgrade without email; skipping update')
-        return NextResponse.json({ ok: true, skipped: true })
+        email = `${whopUserId}@whop.placeholder`
+        console.log(`⚠️ Creating placeholder email: ${email}`)
+      }
+
+      // Log payment type for debugging
+      if (paymentAmount === 0) {
+        console.log(`💡 $0.00 payment detected - likely free trial or promotional membership`)
       }
 
       // Upsert user record (create if doesn't exist, update if exists)
@@ -78,21 +114,26 @@ export async function POST(req: NextRequest) {
         nextMonth.setMonth(nextMonth.getMonth() + 1)
         
         await prisma.user.upsert({
-          where: { email },
+          where: { whopUserId },
           update: {
+            email,
             currentTier: resolvedTier || 'starter',
             generationsLimit: poolLimit ?? getPoolLimit('starter'),
             usageResetDate: renewalDate ? new Date(renewalDate) : nextMonth,
+            membershipId,
           },
           create: {
-            whopUserId: membershipId || 'unknown',
+            whopUserId,
             email,
             currentTier: resolvedTier || 'starter',
             generationsUsed: 0,
             generationsLimit: poolLimit ?? getPoolLimit('starter'),
             usageResetDate: renewalDate ? new Date(renewalDate) : nextMonth,
+            membershipId,
           }
         })
+        
+        console.log(`✅ User upserted successfully: ${whopUserId} (${email}) - Tier: ${resolvedTier || 'starter'}`)
       } catch (upsertErr) {
         console.error('Prisma upsert error (renew/upgrade)', upsertErr)
         return NextResponse.json({ error: 'Failed to upsert user' }, { status: 500 })

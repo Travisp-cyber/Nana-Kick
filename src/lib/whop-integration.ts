@@ -11,6 +11,8 @@ export type WhopMembership = {
   product?: { id?: string; name?: string } | null
   valid_until?: string | null
   current_period_end?: string | null
+  user?: { id?: string; email?: string; name?: string } | null
+  email?: string
 }
 
 export async function fetchWhopMembership(membershipId: string, apiKey = process.env.WHOP_API_KEY): Promise<WhopMembership | null> {
@@ -43,6 +45,26 @@ export async function fetchWhopOrder(orderId: string, apiKey = process.env.WHOP_
     return null
   }
   return await res.json()
+}
+
+export type WhopUser = {
+  id: string
+  email?: string
+  name?: string
+  username?: string
+}
+
+export async function fetchWhopUser(userId: string, apiKey = process.env.WHOP_API_KEY): Promise<WhopUser | null> {
+  if (!apiKey) throw new Error('WHOP_API_KEY is not set')
+  const res = await fetch(`${WHOP_API_BASE}/users/${userId}`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    console.error('Failed to fetch Whop user', userId, await safeRead(res))
+    return null
+  }
+  return (await res.json()) as WhopUser
 }
 
 
